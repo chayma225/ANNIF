@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CosmicLove — Joyeux Anniversaire Zawji Habibi</title>
+  <meta name="description" content="Un coin secret dans l'univers pour fêter l'anniversaire de mon bébé d'amour, Ilyess. Joyeux anniversaire Zawji Habibi !">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet (real map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+
+  <!-- CSS Link -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Inline utilities & protocol validation -->
+  <script>
+    window.handleImageError = function(imgElement) {
+      const wrapper = imgElement.parentElement;
+      if (wrapper) {
+        wrapper.innerHTML = '<div class="image-error"></div>';
+      }
+    };
+
+    if (window.location.protocol === 'file:') {
+      console.warn("Lancement en mode local file:// détecté. Le navigateur bloque les modules ES. Veuillez utiliser http://localhost:8000");
+      window.addEventListener('DOMContentLoaded', () => {
+        const hint = document.querySelector('.gate-hint');
+        if (hint) {
+          hint.innerHTML = "<strong style='color: #FF9EAA;'>⚠️ Attention : Ouvrez ce site via http://localhost:8000 (le serveur Node est déjà démarré !)</strong>";
+        }
+      });
+    }
+  </script>
+</head>
+<body>
+
+  <!-- COUNTDOWN GATEWAY OVERLAY -->
+  <div class="countdown-gate-overlay" id="countdown-gate">
+    <!-- Starfield background -->
+    <div class="gate-starfield" id="gate-starfield"></div>
+
+    <!-- Cosmic background particles -->
+    <div class="gate-particles">
+      <div class="particle p1"></div>
+      <div class="particle p2"></div>
+      <div class="particle p3"></div>
+      <div class="particle p4"></div>
+      <div class="particle p5"></div>
+      <div class="particle p6"></div>
+      <div class="particle p7"></div>
+      <div class="particle p8"></div>
+    </div>
+
+    <div class="gate-content">
+      <div class="badge-pill" id="gate-badge">CosmicLove</div>
+      
+      <h1 class="gate-title">
+        Celebrating <br>
+        <span class="title-highlight">Zawji Habibi</span> <br>
+        in Outer Space
+      </h1>
+      <p class="gate-subtitle">kol 3am w enti b 1000 ya a8la ma 3andi</p>
+
+      <!-- ACTIVE COUNTDOWN CONTAINER -->
+      <div class="gate-countdown-container" id="gate-countdown-wrap">
+        <div class="countdown-widget" id="gate-countdown" title="Clique 5 fois pour tester l'ouverture !">
+          <div class="countdown-unit">
+            <span class="countdown-number" id="gate-days">00</span>
+            <span class="countdown-label">Days</span>
+          </div>
+          <div class="countdown-separator">:</div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="gate-hours">00</span>
+            <span class="countdown-label">Hours</span>
+          </div>
+          <div class="countdown-separator">:</div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="gate-minutes">00</span>
+            <span class="countdown-label">Minutes</span>
+          </div>
+          <div class="countdown-separator">:</div>
+          <div class="countdown-unit">
+            <span class="countdown-number" id="gate-seconds">00</span>
+            <span class="countdown-label">Seconds</span>
+          </div>
+        </div>
+        <p class="gate-hint">le site s'ouvrira automatiquement le 9 Août ✨</p>
+        <p class="test-bypass-hint" id="test-bypass-hint" style="display:none;">(mode test : clique 5 fois sur le compteur pour simuler 00:00)</p>
+      </div>
+
+      <!-- ROTATING HEART PADLOCK (Shown when timer is 00) -->
+      <div class="padlock-wrapper" id="padlock-wrapper">
+        <div class="padlock-container">
+          <div class="padlock" id="main-padlock">
+            <div class="padlock-shackle"></div>
+            <div class="padlock-body">
+              <div class="padlock-heart"></div>
+              <div class="padlock-keyhole"></div>
+            </div>
+          </div>
+          <!-- Rotating key that inserts on hover/click -->
+          <div class="padlock-key" id="padlock-key"></div>
+        </div>
+        <div class="padlock-message">Zawji, clique sur le cadenas pour l'ouvrir 🤍</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN ROMANTIC WEBSITE CONTENT (Hidden initially) -->
+  <div class="main-site-content" id="main-content">
+    <!-- SECTION 1 — STICKY NAVBAR WITH TABS -->
+    <nav class="navbar" id="navbar">
+      <div class="nav-logo">CosmicLove</div>
+      <div class="nav-right">
+        <div class="nav-tabs">
+          <button class="nav-tab active" data-target="view-lettre">Notre Lettre</button>
+          <button class="nav-tab" data-target="view-galerie">Galerie Photos</button>
+          <button class="nav-tab" data-target="view-dreams">Nos Rêves</button>
+          <button class="nav-tab" data-target="view-playlist">Notre Vinyle</button>
+          <button class="nav-tab" data-target="view-emotions">Nos Émotions</button>
+          <button class="nav-tab" data-target="view-univers">Univers Secret</button>
+        </div>
+        <button class="sound-toggle-btn" id="sound-toggle-btn" title="Activer/couper les sons">🔊</button>
+      </div>
+    </nav>
+
+    <!-- VIEW 1: LETTER CARD (ACTIVE BY DEFAULT) -->
+    <div id="view-lettre" class="tab-view active">
+      <!-- HERO REVEAL HEADER -->
+      <header class="hero-section" id="accueil">
+        <div class="hero-particles">
+          <div class="particle p9"></div>
+          <div class="particle p10"></div>
+          <div class="particle p11"></div>
+          <div class="particle p12"></div>
+        </div>
+        <div class="hero-content">
+          <div class="badge-pill">Notre Espace d'Amour</div>
+          <h1 class="hero-title">
+            Mon Petit Coin <br>
+            <span class="title-highlight">Avec Toi</span>
+          </h1>
+          <p class="hero-subtitle">nhottou fih souvenirtna, dh7ketna w klemna</p>
+          
+          <!-- FLOATING KEYWORD PILLS ROW -->
+          <div class="keyword-pills-row">
+            <span class="keyword-pill pill-delay-0">Rou7y</span>
+            <span class="keyword-pill pill-delay-1">7obbi</span>
+            <span class="keyword-pill pill-delay-2">7yeti</span>
+            <span class="keyword-pill pill-delay-3">Weldi</span>
+            <span class="keyword-pill pill-delay-4">Sakinty</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- SECTION 4 — MESSAGE CORNER -->
+      <section class="message-section" id="lettre">
+        <div class="section-header">
+          <h2 class="message-title">Notre Coin à Nous</h2>
+          <p class="message-subtitle">mots écrits avec tout mon coeur</p>
+        </div>
+
+        <!-- GLASSMORPHIC LETTER CARD -->
+        <article class="letter-card" id="letter-card">
+          <!-- Floating heart cluster -->
+          <div class="floating-heart-cluster">
+            <div class="css-heart heart-1"></div>
+            <div class="css-heart heart-2"></div>
+            <div class="css-heart heart-3"></div>
+          </div>
+
+          <div class="letter-greeting">Zawji habibi, rou7y, 7obbi, 7yeti w weldi…</div>
+          
+          <div class="letter-body">
+            <p>Lyoum nhar mouch kima ay nhar… lyoum nhar li toulid fih 7ob 7yety, w ana ma najemch nfawtou bla ma n9ollek 9adeh enti t3anili.</p>
+            <p>Men nhar eli d5alt li 7yeti, barcha 7ajet tbaddlou. L9it m3ak raha, aman, w 7ob ma kontch netsawer eni najem n7ess bih haka. Enti mouch ken 7obbi… enti rou7i, ra7et 9albi, w sakinty. M3ak n7ess rou7i mahbouba, methenia, w fi blasti.</p>
+            <p>Ma bech nekdheb 3lik… el distance binetna touja3ni barcha parfois. Touja3ni khater fama barcha lahdhat netmana nkoun fehom 7dhek… netmana n3ayetlek w nchouf dh7ketek 9odemi… netmana n7odhnek bil9wi w ma nkhallikch.</p>
+            <p>Ama malgré el distance… 3omry ma 7assitha b3adet 9loubna bil3ass. Kol nhar n7ess rou7i a9rab lik akther. El masafa ma tnajjemch tna9is men 7obbi lik… wala tbadel chay men ma7abti — tzidni bark netwa7chek akther… w n7ebek akther… w nestanna l nhar eli ma yab9ach fama chay yfarra9na.</p>
+            <p>Enti dima ma3aya… fi mokhi… fi 9albi… fi kol tafsila men nhari. W hedha l site 3maltou bich yb9a notre petit coin lina a7na — nhottou fih souvenirtna, dh7ketna, klemna, w kol lahdha 7lowa binetna… bch hata ken fama kilometret binetna taw… nab9aw dima 9rib l baadhna.</p>
+            <p>Merci khaterk fi 7yeti… khaterk tkhallini n7ess bel 7ob, bel aman, w bel douceur eli dima tmanitha. Joyeux anniversaire ya rou7i… ya 7ob 9albi… ya a8la insan fi denya.</p>
+          </div>
+
+          <div class="letter-signoff">
+            N7ebek barcha… w kol nhar n7ebek akther men nhar eli 9ablou. 🤍
+          </div>
+
+          <hr class="letter-divider">
+
+          <!-- 3 MINI NOTE CARDS -->
+          <div class="mini-notes-row">
+            <div class="mini-note">"Enti rou7y w rou7i ma t3ichch blakom"</div>
+            <div class="mini-note">"M3ak k7al el lil yb9a wared"</div>
+            <div class="mini-note">"Joyeux anniversaire ya 7ob 9albi"</div>
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <!-- VIEW 2: PHOTO GALLERY -->
+    <div id="view-galerie" class="tab-view">
+      <section class="gallery-section" id="galerie">
+        <div class="section-header">
+          <h2 class="gallery-title">Nos Souvenirs Flottants</h2>
+          <p class="gallery-subtitle">chaque photo, une lahdha 7lowa binetna — clique sur une image pour la voir en grand 💕</p>
+
+          <div class="gallery-actions">
+            <button class="add-memory-btn" id="add-photo-btn">+ Ajouter un souvenir</button>
+            <button class="fav-panel-toggle-btn" id="fav-panel-toggle-btn">
+              <span>🤍</span> Mes favoris <span id="fav-count-badge" class="fav-count-badge" style="display:none;"></span>
+            </button>
+          </div>
+          <p class="widget-desc" id="gallery-slots-status" style="margin-top: 8px; font-size: 11px;"></p>
+        </div>
+
+        <!-- MASONRY GALLERY (9 souvenirs max) -->
+        <div class="masonry-grid" id="polaroid-grid-wrapper">
+          <!-- Populated by JS: real photos from Firestore + empty invite slots -->
+        </div>
+      </section>
+    </div>
+
+    <!-- FAVORITES SIDE PANEL -->
+    <div class="fav-panel-overlay" id="fav-panel-overlay">
+      <div class="fav-panel" id="fav-panel">
+        <div class="fav-panel-header">
+          <div class="fav-panel-title">🤍 Mes favoris <span id="fav-panel-count"></span></div>
+          <button class="fav-panel-close" id="fav-panel-close">&times;</button>
+        </div>
+        <div class="fav-panel-list" id="fav-panel-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: DREAMS & COMMON POINTS -->
+    <div id="view-dreams" class="tab-view">
+      <section class="dreams-section" id="dreams">
+        <div class="section-header">
+          <h2 class="dreams-title">Nos Rêves & Points Communs</h2>
+          <p class="dreams-subtitle">tout ce qu'on rêve de vivre ensemble… et tout ce qui nous unit déjà 💕</p>
+        </div>
+
+        <!-- Dream Form -->
+        <form class="dream-form" id="dream-form">
+          <div class="dream-form-row">
+            <div class="form-group dream-input-group">
+              <input type="text" id="dream-input" placeholder="Ex: Voyager à Tokyo ensemble, On adore les mêmes films…" required maxlength="120">
+            </div>
+            <div class="form-group dream-select-group">
+              <select id="dream-category">
+                <option value="reve">✨ Rêve</option>
+                <option value="commun">💞 Point commun</option>
+                <option value="voyage">✈️ Voyage</option>
+              </select>
+            </div>
+            <button type="submit" class="dream-submit-btn">Ajouter 🤍</button>
+          </div>
+        </form>
+
+        <!-- Dreams Scrapbook -->
+        <div class="scrapbook-board" id="dreams-list"></div>
+      </section>
+    </div>
+
+    <!-- VIEW 4: PLAYLIST (NOTRE VINYLE) -->
+    <div id="view-playlist" class="tab-view">
+      <section class="playlist-section" id="playlist">
+        <div class="section-header">
+          <h2 class="dreams-title">Notre Vinyle</h2>
+          <p class="dreams-subtitle">ajoute la bande-son de notre histoire 🎵</p>
+        </div>
+
+        <div class="playlist-container">
+          <!-- The record player -->
+          <div class="record-player">
+            <div class="record-disc" id="record-disc">
+              <div class="record-label" id="record-label">
+                <span class="music-note">♪</span>
+              </div>
+            </div>
+            <div class="tonearm" id="tonearm">
+              <div class="tonearm-base"></div>
+              <div class="tonearm-stick"></div>
+              <div class="tonearm-head"></div>
+            </div>
+          </div>
+
+          <!-- Active song info -->
+          <div class="active-song-info" id="active-song-info">
+            <h3 id="active-song-title">Sélectionne une chanson</h3>
+            <p id="active-song-artist">pour lancer la musique</p>
+            <p id="active-song-note" style="font-style: italic; color: var(--primary-pink); margin-top: 8px;"></p>
+            <div id="active-song-player" style="margin-top: 16px;"></div>
+          </div>
+        </div>
+
+        <!-- Mini cover art fan below -->
+        <div class="song-fan" id="song-fan">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Add song form -->
+        <form class="dream-form" id="playlist-form" style="margin-top: 40px;">
+          <div class="dream-form-row">
+            <div class="form-group dream-input-group" style="flex: 2;">
+              <input type="text" id="song-title" placeholder="Titre (ex: Perfect)" required>
+            </div>
+            <div class="form-group dream-input-group" style="flex: 1;">
+              <input type="text" id="song-artist" placeholder="Artiste" required>
+            </div>
+          </div>
+          <div class="dream-form-row" style="margin-top: 12px;">
+            <div class="form-group dream-input-group" style="flex: 3;">
+              <input type="url" id="song-url" placeholder="Lien d'intégration (Spotify/YouTube embed URL)" required>
+            </div>
+            <div class="form-group dream-input-group" style="flex: 3;">
+              <input type="text" id="song-note" placeholder="Un petit mot... (ex: pour nos nuits d'étoiles)" required>
+            </div>
+            <button type="submit" class="dream-submit-btn">Ajouter 🎵</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- VIEW 5: NOS ÉMOTIONS -->
+    <div id="view-emotions" class="tab-view">
+      <section class="emotions-section" id="emotions">
+        <div class="section-header">
+          <h2 class="emotions-title">Nos Émotions</h2>
+          <p class="emotions-subtitle">parce qu'on est loin mais si proches 💕</p>
+        </div>
+
+        <div class="emotions-container">
+
+          <!-- FEATURE 1: CARTE D'AMOUR (real map with live positions) -->
+          <div class="emotion-widget distance-widget map-widget">
+            <h3>Notre Carte d'Amour 🗺️</h3>
+            <p class="widget-desc" id="distance-widget-desc">Regueb ↔ Kalâa Kebira</p>
+
+            <!-- Leaflet map -->
+            <div id="love-map"></div>
+
+            <div class="distance-stats">
+              <div class="stat">
+                <span class="stat-label">Distance</span>
+                <span class="stat-value" id="live-distance-value">~125 km</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Trajet</span>
+                <span class="stat-value" id="live-time-value">~2h 15m</span>
+              </div>
+            </div>
+
+            <p class="distance-quote">"Peu importe les kilomètres, nos cœurs sont liés."</p>
+
+            <button id="enable-location-btn" class="dream-submit-btn map-locate-btn">📍 Partager ma position</button>
+            <p id="location-status" class="location-status-text"></p>
+          </div>
+
+          <!-- FEATURE 4: HUMEUR DU MOMENT (replaces baromètre) -->
+          <div class="emotion-widget mood-widget">
+            <h3>Humeur du Moment 💫</h3>
+            <p class="widget-desc">Dis-moi comment tu te sens… je te vois ✨</p>
+
+            <!-- Live mood display for both -->
+            <div class="mood-display">
+              <div class="mood-person">
+                <div class="mood-avatar mood-avatar-c">C</div>
+                <div class="mood-person-name">Chayma</div>
+                <div class="mood-current-emoji" id="mood-chayma">❓</div>
+                <div class="mood-current-label" id="mood-label-chayma">—</div>
+              </div>
+              <div class="mood-connector">
+                <div class="mood-connector-line"></div>
+                <div class="mood-connector-heart">💕</div>
+              </div>
+              <div class="mood-person">
+                <div class="mood-avatar mood-avatar-i">I</div>
+                <div class="mood-person-name">Ilyess</div>
+                <div class="mood-current-emoji" id="mood-ilyess">❓</div>
+                <div class="mood-current-label" id="mood-label-ilyess">—</div>
+              </div>
+            </div>
+
+            <!-- Mood picker -->
+            <p class="mood-pick-label">Comment tu te sens là ?</p>
+            <div class="mood-picker" id="mood-picker">
+              <button class="mood-btn" data-mood="😍" data-label="Amoureux(se)">😍</button>
+              <button class="mood-btn" data-mood="🥰" data-label="Câlin(e)">🥰</button>
+              <button class="mood-btn" data-mood="🌙" data-label="Rêveur(se)">🌙</button>
+              <button class="mood-btn" data-mood="😊" data-label="Heureux(se)">😊</button>
+              <button class="mood-btn" data-mood="🦋" data-label="Papillons">🦋</button>
+              <button class="mood-btn" data-mood="💭" data-label="Pensif(ve)">💭</button>
+              <button class="mood-btn" data-mood="🌧️" data-label="Tu me manques">🌧️</button>
+              <button class="mood-btn" data-mood="⭐" data-label="Dans les étoiles">⭐</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW 6: UNIVERS SECRET -->
+    <div id="view-univers" class="tab-view">
+      <section class="univers-section" id="univers">
+        <div class="section-header">
+          <h2 class="univers-title">Notre Univers Secret</h2>
+          <p class="univers-subtitle">nos trésors cachés dans l'espace 🌌</p>
+        </div>
+
+        <div class="univers-container">
+
+          <!-- FEATURE 5: CAPSULE TEMPORELLE -->
+          <div class="univers-widget capsule-widget">
+            <h3>Capsule Temporelle</h3>
+            <p class="widget-desc">Un secret enfoui qui ne s'ouvre que le 1er du mois prochain.</p>
+
+            <div class="capsule-container">
+              <div class="capsule-chest" id="capsule-chest">
+                <div class="chest-lid"></div>
+                <div class="chest-body"></div>
+                <div class="chest-lock">🔒</div>
+              </div>
+              <div class="capsule-message" id="capsule-message" style="display: none;"></div>
+              <p class="capsule-timer" id="capsule-timer">S'ouvre dans : -- jours</p>
+
+              <div id="capsule-form-container" style="display: none; margin-top: 15px;">
+                <textarea id="capsule-input" placeholder="Écris un message pour la prochaine ouverture..." rows="3" style="width: 100%; border-radius: 8px; padding: 10px; border: 1px solid var(--primary-pink); resize: none;"></textarea>
+                <button id="capsule-submit-btn" class="dream-submit-btn" style="margin-top: 10px;">Sceller la capsule 🔒</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FEATURE 6: MESSAGES DES ÉTOILES -->
+          <div class="univers-widget etoiles-widget">
+            <h3>Messages des Étoiles</h3>
+            <p class="widget-desc">Les étoiles ont quelque chose à te murmurer…</p>
+
+            <div class="etoiles-container">
+              <div class="etoile-sky">
+                <span class="etoile-star s1">✦</span>
+                <span class="etoile-star s2">✧</span>
+                <span class="etoile-star s3">✦</span>
+                <span class="etoile-star s4">✧</span>
+                <span class="etoile-star s5">✦</span>
+                <span class="etoile-star s6">⋆</span>
+              </div>
+              <div class="etoile-card" id="etoile-card">
+                <p class="etoile-message" id="etoile-message">Clique pour recevoir un message des étoiles…</p>
+              </div>
+            </div>
+
+            <button id="etoile-btn" class="dream-submit-btn" style="margin-top: 20px;">Recevoir un message ✨</button>
+          </div>
+
+        </div>
+
+        <!-- FEATURE 3: L'ÉCHO DES MOTS DOUX -->
+        <div class="notes-board-container" style="margin-top: 40px;">
+          <h3 style="color: var(--primary-pink); text-align: center; margin-bottom: 20px; font-family: 'Cormorant Garamond', serif; font-size: 28px;">L'Écho des Mots Doux</h3>
+          <p class="dreams-subtitle" style="text-align: center; margin-bottom: 30px;">laisse un petit mot doux sur le tableau</p>
+
+          <div class="corkboard" id="corkboard">
+            <!-- Notes populated by JS -->
+          </div>
+
+          <form class="dream-form" id="note-form" style="margin-top: 30px; justify-content: center; max-width: 500px; margin-left: auto; margin-right: auto;">
+            <div class="dream-form-row">
+              <div class="form-group dream-input-group" style="flex: 2;">
+                <input type="text" id="note-input" placeholder="Ton petit mot doux..." required maxlength="60">
+              </div>
+              <button type="submit" class="dream-submit-btn">Épingler 📌</button>
+            </div>
+          </form>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- GLOBAL FOOTER (Visible under active tab-views) -->
+    <footer class="footer-section">
+      <div class="footer-heart-row">
+        <div class="css-heart heart-1"></div>
+        <div class="css-heart heart-2"></div>
+        <div class="css-heart heart-3"></div>
+      </div>
+
+      <button class="footer-cta-btn" id="footer-surprise-btn">Une surprise pour toi</button>
+
+      <p class="footer-copy">
+        Fait avec tout mon amour pour <span class="footer-highlight">Ilyess</span> — zawji, habibi, rou7y.<br>
+        <span class="footer-arabic">kol 3am w enti b 1000 ya a8la ma 3andi</span>
+      </p>
+
+      <div class="footer-nav-links">
+        <button class="footer-tab-link" data-target="view-lettre">Notre lettre</button>
+        <button class="footer-tab-link" data-target="view-galerie">Galerie</button>
+        <button class="footer-tab-link" data-target="view-dreams">Nos Rêves</button>
+        <button class="footer-tab-link" data-target="view-playlist">Notre Vinyle</button>
+        <button class="footer-tab-link" data-target="view-emotions">Émotions</button>
+        <button class="footer-tab-link" data-target="view-univers">Univers</button>
+        <button class="footer-tab-link" id="footer-link-surprise">Surprise</button>
+      </div>
+
+      <div class="footer-signoff">
+        CosmicLove — notre petit coin dans l'univers
+      </div>
+    </footer>
+  </div>
+
+  <!-- LIGHTBOX OVERLAY (Fullscreen image view with favorites & comments) -->
+  <div class="lightbox-overlay" id="lightbox-overlay">
+    <button class="lightbox-close" id="lightbox-close">&times;</button>
+    <div class="lightbox-content">
+      <div class="lightbox-img-container">
+        <img id="lightbox-img" src="" alt="Photo en grand">
+      </div>
+      <div class="lightbox-sidebar">
+        <p class="lightbox-caption" id="lightbox-caption"></p>
+        <button class="lightbox-fav-btn" id="lightbox-fav-btn">🤍 Marquer favori</button>
+
+        <div class="lightbox-comments-section">
+          <h4 class="lightbox-comments-title">Commentaires 💬</h4>
+          <div class="lightbox-comments-list" id="lightbox-comments-list">
+            <p class="no-comments">Aucun commentaire encore… ajoute le premier 💕</p>
+          </div>
+          <form class="lightbox-comment-form" id="lightbox-comment-form">
+            <input type="text" id="lightbox-comment-input" placeholder="Écris un commentaire…" required maxlength="200">
+            <button type="submit">💌</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SURPRISE POPUP MODAL — 3-step immersive experience -->
+  <div class="modal-backdrop" id="surprise-modal">
+    <div class="modal-card surprise-modal-card">
+      <button class="modal-close-btn" id="modal-close">&times;</button>
+
+      <!-- Step 1 : sealed envelope -->
+      <div class="surprise-step" id="surprise-step-1">
+        <div class="surprise-envelope">
+          <div class="envelope-body" id="envelope-body">
+            <div class="envelope-flap"></div>
+            <div class="envelope-wax-seal">💌</div>
+          </div>
+        </div>
+        <div class="modal-badge">Une surprise pour toi</div>
+        <h3 class="modal-title">Zawji… tu as un message</h3>
+        <p class="modal-subtitle">Quelque chose de spécial t'attend à l'intérieur.<br>Appuie pour ouvrir l'enveloppe.</p>
+        <button class="modal-cta-btn" id="surprise-open-btn">Ouvrir l'enveloppe 💌</button>
+      </div>
+
+      <!-- Step 2 : the letter -->
+      <div class="surprise-step surprise-hidden" id="surprise-step-2">
+        <div class="modal-badge">Lettre d'amour ✨</div>
+        <div class="surprise-letter">
+          <div class="letter-lines">
+            <p class="letter-line" style="--d:0">Zawji habibi…</p>
+            <p class="letter-line" style="--d:1">Chaque jour avec toi est un cadeau que je n'aurais jamais osé rêver.</p>
+            <p class="letter-line" style="--d:2">Tu es mon chez-moi, mon calme, ma lumière dans les nuits les plus sombres.</p>
+            <p class="letter-line" style="--d:3">Tu es tout ce que je cherchais sans même le savoir — mon univers entier.</p>
+            <p class="letter-line" style="--d:4">Kol 3am w enti b 1000 — ya a8la ma 3andi fi l'univers. 🌙</p>
+            <p class="letter-line letter-signature" style="--d:5">Avec tout mon amour,<br><em>pour toujours… 💕</em></p>
+          </div>
+        </div>
+        <button class="modal-cta-btn" id="surprise-reply-btn">Garder dans mon cœur 🤍</button>
+      </div>
+
+      <!-- Step 3 : final glow -->
+      <div class="surprise-step surprise-hidden" id="surprise-step-3">
+        <div class="surprise-final-heart">♥</div>
+        <div class="modal-badge">Pour toujours ✨</div>
+        <h3 class="modal-title">Notre amour est éternel</h3>
+        <p class="modal-subtitle">Ce moment est gravé dans notre univers secret.<br>Joyeux anniversaire, ya rou7i. 🌙✨</p>
+        <div class="modal-heart-row">
+          <div class="css-heart heart-1"></div>
+          <div class="css-heart heart-2"></div>
+          <div class="css-heart heart-3"></div>
+        </div>
+        <button class="modal-cta-btn" id="surprise-close-final-btn">Fermer et sourire 😊</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOADER FORM POPUP MODAL -->
+  <div class="modal-backdrop" id="upload-modal">
+    <div class="modal-card upload-modal-card">
+      <button class="modal-close-btn" id="upload-modal-close">&times;</button>
+
+      <div class="modal-badge">Nouveau Souvenir</div>
+      <h3 class="modal-title">Ajouter une Photo</h3>
+      <p class="modal-subtitle" style="margin-bottom: 16px;">Ajoutez un moment gravé dans votre univers.</p>
+
+      <form id="upload-form" class="upload-form">
+        <div class="form-group">
+          <label for="upload-file" class="form-label">Choisir l'image</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="upload-file" accept="image/*" required>
+            <span class="file-custom-btn">Choisir un fichier</span>
+            <span id="file-chosen" class="file-chosen-text">Aucun fichier choisi</span>
+          </div>
+          <div id="upload-preview-container" class="preview-container">
+            <img id="upload-preview" src="" alt="Aperçu de la photo">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="upload-caption" class="form-label">Légende (Caption)</label>
+          <input type="text" id="upload-caption" placeholder="Ex: notre premier souvenir" required max="32">
+        </div>
+
+        <div class="form-group">
+          <label for="upload-tag" class="form-label">Tag ou Année (Sub-tag)</label>
+          <input type="text" id="upload-tag" placeholder="Ex: 2024, forever, m3ak" required max="12">
+        </div>
+
+        <button type="submit" class="modal-cta-btn">Ajouter au site 🤍</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="cosmic-toast" class="cosmic-toast"></div>
+
+  <!-- Access Code Modal (real access protection, shown when padlock is clicked) -->
+  <div id="access-code-modal" class="identity-modal">
+    <div class="identity-modal-content">
+      <h2>Un petit code, zawji 🤍</h2>
+      <p class="access-code-hint">Tu sais lequel...</p>
+      <form id="access-code-form" autocomplete="off">
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off">
+        <p class="access-code-error" id="access-code-error"></p>
+        <button type="submit" class="identity-btn access-code-submit">Ouvrir 🔓</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Identity Modal -->
+  <div id="identity-modal" class="identity-modal">
+    <div class="identity-modal-content">
+      <h2>Qui es-tu ? 🤍</h2>
+      <div class="identity-buttons">
+        <button id="btn-chayma" class="identity-btn">Chayma 💕</button>
+        <button id="btn-ilyess" class="identity-btn">Ilyess 🤍</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom cursor elements -->
+  <div class="cursor-dot" id="cursor-dot"></div>
+  <div class="cursor-ring" id="cursor-ring"></div>
+
+  <!-- Script -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
