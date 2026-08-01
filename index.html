@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CosmicLove — Joyeux Anniversaire Zawji Habibi</title>
+  <title>Notre univers</title>
+  
+  <!-- Favicon Emoji (💖) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
   <meta name="description" content="Un coin secret dans l'univers pour fêter l'anniversaire de mon bébé d'amour, Ilyess. Joyeux anniversaire Zawji Habibi !">
   
   <!-- Google Fonts -->
@@ -65,7 +68,7 @@
         <span class="title-highlight">Zawji Habibi</span> <br>
         in Outer Space
       </h1>
-      <p class="gate-subtitle">kol 3am w enti b 1000 ya a8la ma 3andi</p>
+      <p class="gate-subtitle">Something special is waiting for you...</p>
 
       <!-- ACTIVE COUNTDOWN CONTAINER -->
       <div class="gate-countdown-container" id="gate-countdown-wrap">
@@ -90,7 +93,7 @@
             <span class="countdown-label">Seconds</span>
           </div>
         </div>
-        <p class="gate-hint">le site s'ouvrira automatiquement le 9 Août ✨</p>
+        <p class="gate-hint">Something sweet is unlocking soon ✨</p>
         <p class="test-bypass-hint" id="test-bypass-hint" style="display:none;">(mode test : clique 5 fois sur le compteur pour simuler 00:00)</p>
       </div>
 
@@ -391,14 +394,29 @@
             <!-- Mood picker -->
             <p class="mood-pick-label">Comment tu te sens là ?</p>
             <div class="mood-picker" id="mood-picker">
-              <button class="mood-btn" data-mood="😍" data-label="Amoureux(se)">😍</button>
-              <button class="mood-btn" data-mood="🥰" data-label="Câlin(e)">🥰</button>
-              <button class="mood-btn" data-mood="🌙" data-label="Rêveur(se)">🌙</button>
-              <button class="mood-btn" data-mood="😊" data-label="Heureux(se)">😊</button>
-              <button class="mood-btn" data-mood="🦋" data-label="Papillons">🦋</button>
-              <button class="mood-btn" data-mood="💭" data-label="Pensif(ve)">💭</button>
-              <button class="mood-btn" data-mood="🌧️" data-label="Tu me manques">🌧️</button>
-              <button class="mood-btn" data-mood="⭐" data-label="Dans les étoiles">⭐</button>
+              <!-- Ligne 1 : Positif / Joyeux -->
+              <button class="mood-btn" data-mood="😍" data-label-m="Amoureux" data-label-f="Amoureuse">😍</button>
+              <button class="mood-btn" data-mood="🥰" data-label-m="Rempli d'amour" data-label-f="Remplie d'amour">🥰</button>
+              <button class="mood-btn" data-mood="🥳" data-label-m="Joyeux" data-label-f="Joyeuse">🥳</button>
+              <button class="mood-btn" data-mood="😊" data-label-m="Heureux" data-label-f="Heureuse">😊</button>
+              <button class="mood-btn" data-mood="🤩" data-label-m="Émerveillé" data-label-f="Émerveillée">🤩</button>
+              <button class="mood-btn" data-mood="😌" data-label-m="Tranquille" data-label-f="Tranquille">😌</button>
+
+              <!-- Ligne 2 : Besoins, calme & fatigue -->
+              <button class="mood-btn" data-mood="🥺" data-label-m="Besoin de câlins" data-label-f="Besoin de câlins">🥺</button>
+              <button class="mood-btn" data-mood="😴" data-label-m="Sommeil" data-label-f="Sommeil">😴</button>
+              <button class="mood-btn" data-mood="🤒" data-label-m="Malade" data-label-f="Malade">🤒</button>
+              <button class="mood-btn" data-mood="💭" data-label-m="Pensif" data-label-f="Pensive">💭</button>
+              <button class="mood-btn" data-mood="🤗" data-label-m="Envie d'une présence" data-label-f="Envie d'une présence">🤗</button>
+              <button class="mood-btn" data-mood="🥱" data-label-m="Épuisé" data-label-f="Épuisée">🥱</button>
+
+              <!-- Ligne 3 : Tristesse, stress & émotions fortes -->
+              <button class="mood-btn" data-mood="😢" data-label-m="Triste" data-label-f="Triste">😢</button>
+              <button class="mood-btn" data-mood="😤" data-label-m="Énervé" data-label-f="Énervée">😤</button>
+              <button class="mood-btn" data-mood="🥹" data-label-m="Touché" data-label-f="Touchée">🥹</button>
+              <button class="mood-btn" data-mood="🤯" data-label-m="Trop de choses en tête" data-label-f="Trop de choses en tête">🤯</button>
+              <button class="mood-btn" data-mood="😔" data-label-m="Démoralisé" data-label-f="Démoralisée">😔</button>
+              <button class="mood-btn" data-mood="❤️‍🩹" data-label-m="En besoin de réconfort" data-label-f="En besoin de réconfort">❤️‍🩹</button>
             </div>
           </div>
 
@@ -419,7 +437,7 @@
           <!-- FEATURE 5: CAPSULE TEMPORELLE -->
           <div class="univers-widget capsule-widget">
             <h3>Capsule Temporelle</h3>
-            <p class="widget-desc">Un secret enfoui qui ne s'ouvre que le 1er du mois prochain.</p>
+            <p class="widget-desc">Un secret enfoui, jusqu'à la date que tu choisis pour ton/ta partenaire.</p>
 
             <div class="capsule-container">
               <div class="capsule-chest" id="capsule-chest">
@@ -432,6 +450,8 @@
 
               <div id="capsule-form-container" style="display: none; margin-top: 15px;">
                 <textarea id="capsule-input" placeholder="Écris un message pour la prochaine ouverture..." rows="3" style="width: 100%; border-radius: 8px; padding: 10px; border: 1px solid var(--primary-pink); resize: none;"></textarea>
+                <label for="capsule-unlock-date" class="capsule-date-label">Quand ton/ta partenaire pourra l'ouvrir :</label>
+                <input type="datetime-local" id="capsule-unlock-date" class="capsule-date-input">
                 <button id="capsule-submit-btn" class="dream-submit-btn" style="margin-top: 10px;">Sceller la capsule 🔒</button>
               </div>
             </div>
@@ -631,14 +651,16 @@
   <div id="cosmic-toast" class="cosmic-toast"></div>
 
   <!-- Access Code Modal (real access protection, shown when padlock is clicked) -->
-  <div id="access-code-modal" class="identity-modal">
-    <div class="identity-modal-content">
-      <h2>Un petit code, zawji 🤍</h2>
-      <p class="access-code-hint">Tu sais lequel...</p>
+  <div class="modal-backdrop" id="access-code-modal">
+    <div class="modal-card access-code-modal-card">
+      <button type="button" class="modal-close-btn" id="access-code-close">&times;</button>
+      <div class="modal-badge">Accès privé</div>
+      <h3 class="modal-title">Un petit code, zawji 🤍</h3>
+      <p class="modal-subtitle">Tu sais lequel…</p>
       <form id="access-code-form" autocomplete="off">
         <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off">
         <p class="access-code-error" id="access-code-error"></p>
-        <button type="submit" class="identity-btn access-code-submit">Ouvrir 🔓</button>
+        <button type="submit" class="modal-cta-btn">Ouvrir 🔓</button>
       </form>
     </div>
   </div>

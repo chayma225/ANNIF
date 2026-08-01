@@ -13,8 +13,14 @@ const firebaseConfig = {
   appId: "1:1050605246477:web:67e7b8de8342c3e4779d44"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+let app = null;
+let db = null;
+try {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+} catch (err) {
+  console.error('Firebase init failed (blocked by browser/extension?) — Firebase-dependent features (gallery, dreams, moods, comments...) will be unavailable, but the rest of the site keeps working:', err);
+}
 
 // ==========================================================================
 // SECURITY HELPER - Échappe le HTML pour éviter les injections
@@ -50,7 +56,12 @@ export function showToast(message, isError = false) {
 // ==========================================================================
 // IDENTITY LOGIC - ENHANCED
 // ==========================================================================
-let currentUser = localStorage.getItem('cosmiclove_user');
+let currentUser = null;
+try {
+  currentUser = localStorage.getItem('cosmiclove_user');
+} catch (err) {
+  console.error('localStorage unavailable (private mode / blocked storage?):', err);
+}
 export function getUser() {
   const identity = localStorage.getItem('identity');
   return identity ? identity : (currentUser || 'Anon');
@@ -316,10 +327,20 @@ function initLiveDistance() {
     attributionControl: false
   });
 
-  // Dark romantic tile layer (CartoDB Dark Matter)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 18
+  // Pastel cute tile layer (standard OSM tiles - more reliable than 3rd-party CDNs)
+  const pastelFallbackTile = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Crect width='256' height='256' fill='%23FCE4EC'/%3E%3C/svg%3E";
+  const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap',
+    errorTileUrl: pastelFallbackTile // never show a broken/hashed tile - instant pastel fallback instead
   }).addTo(map);
+
+  const mapEl = document.getElementById('love-map');
+  if (mapEl) {
+    mapEl.classList.add('map-loading');
+    map.whenReady(() => mapEl.classList.remove('map-loading'));
+    setTimeout(() => mapEl.classList.remove('map-loading'), 1500); // never wait more than 1.5s, no matter what
+  }
 
   // Heart icon factory
   function heartIcon(color) {
@@ -498,7 +519,6 @@ function initTabNavigation() {
 // COUNTDOWN TIMER GATE LOGIC - PREMIUM EDITION
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-  initIdentity();
   initAmbientLayer();
   initLiveDistance();
   initSoundToggle();
@@ -611,6 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
           mainContent.classList.add('visible');
           mainContent.offsetHeight;
           playVinylStart();
+          initIdentity(); // ask "who are you" only now, after the gate/PIN is fully done
         }, 400);
       }, 800);
     }, 500);
@@ -620,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const accessForm = document.getElementById('access-code-form');
   const accessInput = document.getElementById('access-code-input');
   const accessError = document.getElementById('access-code-error');
+  const accessCloseBtn = document.getElementById('access-code-close');
 
   function openAccessModal() {
     if (!accessModal) return;
@@ -656,6 +678,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Escape hatch — this popup must NEVER be able to get stuck blocking the whole site
+  if (accessCloseBtn) {
+    accessCloseBtn.addEventListener('click', closeAccessModal);
+  }
+  if (accessModal) {
+    accessModal.addEventListener('click', (e) => {
+      if (e.target === accessModal) closeAccessModal(); // clicked the dark backdrop, not the card
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.modal-backdrop.open').forEach((openModal) => {
+      openModal.classList.remove('open');
+      document.body.style.overflow = '';
+      setTimeout(() => {
+        if (!openModal.classList.contains('open')) openModal.style.display = 'none';
+      }, 300);
+    });
+  });
 
   if (padlock) {
     padlock.addEventListener('click', () => {
@@ -1020,12 +1062,73 @@ function initContentModules() {
   const lightboxCommentInput = document.getElementById('lightbox-comment-input');
   const lightboxCommentsList = document.getElementById('lightbox-comments-list');
   let currentLightboxPhotoId = '';
+  let zoomScale = 1;
+  let zoomX = 0, zoomY = 0;
+  let isPanning = false, panStartX = 0, panStartY = 0;
+
+  function resetZoom() {
+    zoomScale = 1;
+    zoomX = 0;
+    zoomY = 0;
+    if (lightboxImg) {
+      lightboxImg.style.transform = 'translate(0px, 0px) scale(1)';
+      lightboxImg.classList.remove('zoomed');
+    }
+  }
+
+  function applyZoomTransform() {
+    lightboxImg.style.transform = `translate(${zoomX}px, ${zoomY}px) scale(${zoomScale})`;
+    lightboxImg.classList.toggle('zoomed', zoomScale > 1);
+  }
+
+  if (lightboxImg) {
+    // Click to toggle between normal size and 2.5x zoom
+    lightboxImg.addEventListener('click', (e) => {
+      if (isPanning) return; // avoid toggling right after a drag
+      if (zoomScale === 1) {
+        zoomScale = 2.5;
+      } else {
+        zoomScale = 1;
+        zoomX = 0;
+        zoomY = 0;
+      }
+      applyZoomTransform();
+    });
+
+    // Scroll wheel to fine-tune zoom
+    lightboxImg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoomScale += (e.deltaY < 0 ? 0.2 : -0.2);
+      zoomScale = Math.min(Math.max(zoomScale, 1), 4);
+      if (zoomScale === 1) { zoomX = 0; zoomY = 0; }
+      applyZoomTransform();
+    }, { passive: false });
+
+    // Drag to pan around when zoomed in
+    lightboxImg.addEventListener('mousedown', (e) => {
+      if (zoomScale === 1) return;
+      isPanning = true;
+      panStartX = e.clientX - zoomX;
+      panStartY = e.clientY - zoomY;
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      zoomX = e.clientX - panStartX;
+      zoomY = e.clientY - panStartY;
+      applyZoomTransform();
+    });
+    window.addEventListener('mouseup', () => {
+      setTimeout(() => { isPanning = false; }, 0);
+    });
+  }
 
   function openLightbox(src, caption, photoId) {
     if (!lightbox) return;
     currentLightboxPhotoId = photoId;
     lightboxImg.src = src;
     lightboxCaption.textContent = caption;
+    resetZoom();
     lightbox.style.display = 'flex';
     lightbox.offsetHeight;
     lightbox.classList.add('open');
@@ -1039,6 +1142,7 @@ function initContentModules() {
     if (!lightbox) return;
     lightbox.classList.remove('open');
     document.body.style.overflow = '';
+    resetZoom();
     setTimeout(() => {
       if (!lightbox.classList.contains('open')) {
         lightbox.style.display = 'none';
@@ -1294,7 +1398,9 @@ function initContentModules() {
     try {
       const u = new URL(url);
       if (u.hostname.includes('open.spotify.com') && !u.pathname.includes('/embed')) {
-        return `https://open.spotify.com/embed${u.pathname}`;
+        // Spotify sometimes shares links like /intl-fr/album/xxx - the embed endpoint 404s on that locale prefix
+        const cleanPath = u.pathname.replace(/^\/intl-[a-zA-Z-]+/, '');
+        return `https://open.spotify.com/embed${cleanPath}`;
       }
       if (u.hostname.includes('youtu.be')) {
         const id = u.pathname.replace('/', '');
@@ -1313,7 +1419,7 @@ function initContentModules() {
     playVinylStart();
     if (activeSongTitle) activeSongTitle.textContent = data.title;
     if (activeSongArtist) activeSongArtist.textContent = data.artist;
-    if (activeSongNote) activeSongNote.textContent = data.note ? `"${data.note}"` : '';
+    if (activeSongNote) activeSongNote.textContent = data.note || '';
 
     if (activeSongPlayer) {
       const embedUrl = toEmbedUrl(data.url);
@@ -1363,7 +1469,7 @@ function initContentModules() {
         <span class="song-track-num">${String(idx + 1).padStart(2, '0')}</span>
         <div class="song-vinyl-icon"><div class="song-vinyl-dot"></div></div>
         <div class="song-card-text">
-          <span class="song-card-title">${data.note ? `"${escapeHTML(data.note)}"` : escapeHTML(data.title)}</span>
+          <span class="song-card-title">${data.note ? escapeHTML(data.note) : escapeHTML(data.title)}</span>
           <span class="song-card-artist">${escapeHTML(data.title)}</span>
           ${data.artist ? `<span class="song-card-note">${escapeHTML(data.artist)}</span>` : ''}
         </div>
@@ -1422,8 +1528,8 @@ function initContentModules() {
       const btn = e.target.closest('.mood-btn');
       if (!btn) return;
       const emoji = btn.dataset.mood;
-      const label = btn.dataset.label;
       const user  = getUser();
+      const label = user === 'Chayma' ? btn.dataset.labelF : btn.dataset.labelM;
       // Highlight selected
       moodPicker.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
@@ -1444,6 +1550,8 @@ function initContentModules() {
   const capsuleFormContainer = document.getElementById('capsule-form-container');
   const capsuleInput = document.getElementById('capsule-input');
   const capsuleSubmitBtn = document.getElementById('capsule-submit-btn');
+
+  const capsuleDateInput = document.getElementById('capsule-unlock-date');
 
   function nextFirstOfMonth(from = new Date()) {
     return new Date(from.getFullYear(), from.getMonth() + 1, 1, 0, 0, 0);
@@ -1513,14 +1621,28 @@ function initContentModules() {
           showToast('Écris quelque chose avant de sceller la capsule', true);
           return;
         }
+
+        let unlockTimestamp;
+        const chosenDate = capsuleDateInput ? capsuleDateInput.value : '';
+        if (chosenDate) {
+          unlockTimestamp = new Date(chosenDate).getTime();
+          if (isNaN(unlockTimestamp) || unlockTimestamp <= Date.now()) {
+            showToast('Choisis une date dans le futur 🤍', true);
+            return;
+          }
+        } else {
+          unlockTimestamp = nextFirstOfMonth().getTime(); // default if no date chosen
+        }
+
         await setDoc(doc(db, 'capsule', 'current'), {
           message: text,
           sealedBy: getUser(),
           sealedAt: Date.now(),
-          unlockDate: nextFirstOfMonth().getTime()
+          unlockDate: unlockTimestamp
         });
         capsuleInput.value = '';
-        showToast('Capsule scellée jusqu\'au mois prochain 🔒');
+        if (capsuleDateInput) capsuleDateInput.value = '';
+        showToast('Capsule scellée 🔒');
       });
     }
   }
@@ -1633,6 +1755,9 @@ function initCustomCursor() {
     ring.style.display = 'none';
     return;
   }
+
+  // Only now hide the native cursor - if we got this far, the custom one actually works
+  document.body.classList.add('custom-cursor-active');
 
   let mx = -100, my = -100; // start off-screen
   let rx = -100, ry = -100;
@@ -1771,18 +1896,22 @@ function initGateStarfield() {
 
 // ── Boot all upgrades ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  initCustomCursor();
-  initGateStarfield();
+  try { initCustomCursor(); } catch (err) { console.error('initCustomCursor failed:', err); }
+  try { initGateStarfield(); } catch (err) { console.error('initGateStarfield failed:', err); }
 
   // Run scroll-reveal after gate is dismissed and main content becomes visible
   const mainContent = document.getElementById('main-content');
   if (mainContent) {
     const observer = new MutationObserver(() => {
       if (mainContent.classList.contains('visible')) {
-        initScrollReveal();
-        initNavbarShrink();
-        // Initial reveal for above-the-fold elements
-        setTimeout(refreshScrollReveal, 200);
+        try {
+          initScrollReveal();
+          initNavbarShrink();
+          // Initial reveal for above-the-fold elements
+          setTimeout(refreshScrollReveal, 200);
+        } catch (err) {
+          console.error('post-unlock init failed:', err);
+        }
         observer.disconnect();
       }
     });
