@@ -36,6 +36,52 @@ export function escapeHTML(str) {
     "'": '&#39;'
   }[m]));
 }
+// ==========================================================================
+// IMAGE/VIDEO OPTIMIZATION HELPERS - vignettes rapides, upload compressé
+// ==========================================================================
+function getOptimizedUrl(url, width) {
+  if (!url || !url.includes('/upload/')) return url;
+  return url.replace('/upload/', `/upload/w_${width},q_auto,f_auto,c_limit/`);
+}
+
+function isVideoUrl(url) {
+  return /\.(mp4|mov|webm|m4v|avi)(\?|$)/i.test(String(url || ''));
+}
+
+function isVideoFile(file) {
+  return file instanceof File && (file.type.startsWith('video/') || /\.(mp4|mov|webm|m4v|avi)$/i.test(file.name));
+}
+
+function getVideoThumbnail(url, width = 500) {
+  if (!url || !url.includes('/upload/')) return url;
+  return url
+    .replace('/upload/', `/upload/w_${width},q_auto,c_limit/`)
+    .replace(/\.(mp4|mov|webm|m4v|avi)$/i, '.jpg');
+}
+
+function compressImageBeforeUpload(file, maxWidth = 1600, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('Compression échouée')),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // ==========================================================================
 // TOAST NOTIFICATION LOGIC - PREMIUM EDITION
@@ -855,19 +901,29 @@ function initContentModules() {
   return;
 }
 
+      const isVideo = isVideoFile(file);
       const cloudName = 'zwrchxbf';
       const uploadPreset = 'cosmiclove_unsigned';
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', uploadPreset);
 
       const submitBtn = uploadForm.querySelector('button[type="submit"]');
       const originalText = submitBtn.textContent;
-      submitBtn.textContent = 'Envoi vers les étoiles... ✨';
-      submitBtn.disabled = true;
 
       try {
-        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        if (isVideo) {
+          formData.append('file', file);
+        } else {
+          submitBtn.textContent = 'Compression en cours... ✨';
+          const compressedFile = await compressImageBeforeUpload(file);
+          formData.append('file', compressedFile, 'photo.jpg');
+        }
+        formData.append('upload_preset', uploadPreset);
+
+        submitBtn.textContent = 'Envoi vers les étoiles... ✨';
+        submitBtn.disabled = true;
+
+        const endpoint = isVideo ? 'video' : 'image';
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${endpoint}/upload`, {
           method: 'POST',
           body: formData
         });
@@ -878,6 +934,7 @@ function initContentModules() {
 
         await addDoc(collection(db, 'photos'), {
           src: imageUrl,
+          type: isVideo ? 'video' : 'image',
           caption: caption,
           tag: tag,
           addedBy: getUser(),
@@ -911,11 +968,13 @@ function initContentModules() {
 
   photos.forEach(p => {
     const isFav = (p.favoritedBy || []).includes(getUser());
+    const isVid = p.type === 'video' || isVideoUrl(p.src);
     const card = document.createElement('div');
     card.className = 'masonry-card';
     card.id = p.id;
     card.innerHTML = `
-      <img src="${escapeHTML(p.src)}" alt="${escapeHTML(p.caption)}" onerror="handleImageError(this)">
+      <img src="${escapeHTML(isVid ? getVideoThumbnail(p.src, 500) : getOptimizedUrl(p.src, 500))}" alt="${escapeHTML(p.caption)}" loading="lazy" onerror="handleImageError(this)">
+      ${isVid ? '<div class="masonry-play-icon">▶</div>' : ''}
       <button class="masonry-delete-btn" data-id="${p.id}" title="Supprimer ce souvenir">&times;</button>
       <button class="masonry-heart-btn${isFav ? ' active' : ''}" data-id="${p.id}" title="Favori">${isFav ? '❤️' : '🤍'}</button>
       <div class="masonry-overlay">
@@ -925,7 +984,7 @@ function initContentModules() {
     `;
     card.addEventListener('click', (e) => {
       if (e.target.closest('.masonry-heart-btn') || e.target.closest('.masonry-delete-btn')) return;
-      openLightbox(p.src, p.caption, p.id);
+      openLightbox(p.src, p.caption, p.id, isVid);
     });
     polaroidGridWrapper.appendChild(card);
   });
@@ -995,7 +1054,7 @@ function initContentModules() {
       const item = document.createElement('div');
       item.className = 'fav-panel-item';
       item.innerHTML = `
-        <img src="${escapeHTML(p.src)}" alt="${escapeHTML(p.caption)}" data-id="${p.id}">
+        <img src="${escapeHTML(isVideoUrl(p.src) || p.type === 'video' ? getVideoThumbnail(p.src, 150) : getOptimizedUrl(p.src, 150))}" alt="${escapeHTML(p.caption)}" loading="lazy" data-id="${p.id}">
         <div class="fav-panel-item-info">
           <div class="fav-panel-item-caption">${escapeHTML(p.caption)}</div>
           <div class="fav-panel-item-tag">${escapeHTML(p.tag || '')}</div>
@@ -1024,7 +1083,7 @@ function initContentModules() {
         const p = photosCache[img.getAttribute('data-id')];
         if (p) {
           favPanelOverlay.classList.remove('open');
-          openLightbox(p.src, p.caption, p.id);
+          openLightbox(p.src, p.caption, p.id, p.type === 'video' || isVideoUrl(p.src));
         }
         return;
       }
@@ -1115,10 +1174,44 @@ function initContentModules() {
     });
   }
 
-  function openLightbox(src, caption, photoId) {
+  function getLightboxVideoEl() {
+    let vid = document.getElementById('lightbox-video-el');
+    if (!vid && lightboxImg && lightboxImg.parentNode) {
+      vid = document.createElement('video');
+      vid.id = 'lightbox-video-el';
+      vid.controls = true;
+      vid.style.maxWidth = '100%';
+      vid.style.maxHeight = '85vh';
+      vid.style.display = 'none';
+      vid.style.borderRadius = '12px';
+      lightboxImg.parentNode.insertBefore(vid, lightboxImg.nextSibling);
+    }
+    return vid;
+  }
+
+  function openLightbox(src, caption, photoId, isVideo = false) {
     if (!lightbox) return;
     currentLightboxPhotoId = photoId;
-    lightboxImg.src = src;
+    const videoEl = getLightboxVideoEl();
+
+    if (isVideo) {
+      if (videoEl) {
+        videoEl.src = src;
+        videoEl.style.display = 'block';
+        videoEl.play().catch(() => {});
+      }
+      lightboxImg.style.display = 'none';
+      lightboxImg.src = '';
+    } else {
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.style.display = 'none';
+        videoEl.src = '';
+      }
+      lightboxImg.style.display = 'block';
+      lightboxImg.src = src;
+    }
+
     lightboxCaption.textContent = caption;
     resetZoom();
     lightbox.style.display = 'flex';
@@ -1139,6 +1232,9 @@ function initContentModules() {
       if (!lightbox.classList.contains('open')) {
         lightbox.style.display = 'none';
         lightboxImg.src = '';
+        lightboxImg.style.display = 'block';
+        const videoEl = document.getElementById('lightbox-video-el');
+        if (videoEl) { videoEl.pause(); videoEl.src = ''; videoEl.style.display = 'none'; }
         currentLightboxPhotoId = '';
       }
     }, 300);
