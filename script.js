@@ -792,6 +792,7 @@ function initContentModules() {
   const uploadPreview = document.getElementById('upload-preview');
   const uploadPreviewContainer = document.getElementById('upload-preview-container');
   const polaroidGridWrapper = document.getElementById('polaroid-grid-wrapper');
+  const MAX_PHOTOS = 250;
   let photosCache = {};
 
   if (addPhotoBtn && uploadModal) {
@@ -849,10 +850,10 @@ function initContentModules() {
 
       if (!file || !caption || !tag) return;
 
-      if (Object.keys(photosCache).length >= 9) {
-        showToast('Notre galerie est complète (9/9) — supprime un souvenir avant d\'en ajouter un nouveau 🤍', true);
-        return;
-      }
+      if (Object.keys(photosCache).length >= MAX_PHOTOS) {
+  showToast(`Notre galerie est complète (${MAX_PHOTOS}/${MAX_PHOTOS}) — supprime un souvenir avant d'en ajouter un nouveau 🤍`, true);
+  return;
+}
 
       const cloudName = 'zwrchxbf';
       const uploadPreset = 'cosmiclove_unsigned';
@@ -900,44 +901,35 @@ function initContentModules() {
   }
 
   function renderGallery() {
-    if (!polaroidGridWrapper) return;
-    const photos = Object.values(photosCache).sort((a, b) => a.createdAt - b.createdAt);
+  if (!polaroidGridWrapper) return;
+  const photos = Object.values(photosCache).sort((a, b) => a.createdAt - b.createdAt);
 
-    const slotsStatus = document.getElementById('gallery-slots-status');
-    if (slotsStatus) slotsStatus.textContent = `${photos.length}/9 souvenirs`;
+  const slotsStatus = document.getElementById('gallery-slots-status');
+  if (slotsStatus) slotsStatus.textContent = `${photos.length}/${MAX_PHOTOS} souvenirs`;
 
-    polaroidGridWrapper.innerHTML = '';
+  polaroidGridWrapper.innerHTML = '';
 
-    for (let i = 0; i < 9; i++) {
-      if (photos[i]) {
-        const p = photos[i];
-        const isFav = (p.favoritedBy || []).includes(getUser());
-        const card = document.createElement('div');
-        card.className = 'masonry-card';
-        card.id = p.id;
-        card.innerHTML = `
-          <img src="${escapeHTML(p.src)}" alt="${escapeHTML(p.caption)}" onerror="handleImageError(this)">
-          <button class="masonry-delete-btn" data-id="${p.id}" title="Supprimer ce souvenir">&times;</button>
-          <button class="masonry-heart-btn${isFav ? ' active' : ''}" data-id="${p.id}" title="Favori">${isFav ? '❤️' : '🤍'}</button>
-          <div class="masonry-overlay">
-            <div class="masonry-caption">${escapeHTML(p.caption)}</div>
-            <div class="masonry-tag">${escapeHTML(p.tag || '')}</div>
-          </div>
-        `;
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.masonry-heart-btn') || e.target.closest('.masonry-delete-btn')) return;
-          openLightbox(p.src, p.caption, p.id);
-        });
-        polaroidGridWrapper.appendChild(card);
-      } else {
-        const empty = document.createElement('div');
-        empty.className = 'masonry-card empty-slot';
-        empty.innerHTML = `<span class="empty-slot-icon">+</span><span>Ajoute un souvenir</span>`;
-        empty.addEventListener('click', () => addPhotoBtn && addPhotoBtn.click());
-        polaroidGridWrapper.appendChild(empty);
-      }
-    }
-  }
+  photos.forEach(p => {
+    const isFav = (p.favoritedBy || []).includes(getUser());
+    const card = document.createElement('div');
+    card.className = 'masonry-card';
+    card.id = p.id;
+    card.innerHTML = `
+      <img src="${escapeHTML(p.src)}" alt="${escapeHTML(p.caption)}" onerror="handleImageError(this)">
+      <button class="masonry-delete-btn" data-id="${p.id}" title="Supprimer ce souvenir">&times;</button>
+      <button class="masonry-heart-btn${isFav ? ' active' : ''}" data-id="${p.id}" title="Favori">${isFav ? '❤️' : '🤍'}</button>
+      <div class="masonry-overlay">
+        <div class="masonry-caption">${escapeHTML(p.caption)}</div>
+        <div class="masonry-tag">${escapeHTML(p.tag || '')}</div>
+      </div>
+    `;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.masonry-heart-btn') || e.target.closest('.masonry-delete-btn')) return;
+      openLightbox(p.src, p.caption, p.id);
+    });
+    polaroidGridWrapper.appendChild(card);
+  });
+}
 
   if (polaroidGridWrapper) {
     polaroidGridWrapper.addEventListener('click', async (e) => {
