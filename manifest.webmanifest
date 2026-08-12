@@ -1,0 +1,19 @@
+{
+  "name": "Notre Univers — CosmicLove",
+  "short_name": "Notre Univers",
+  "description": "Notre petit coin d’amour dans l’univers.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#19091f",
+  "theme_color": "#3c1538",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/cosmiclove-icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

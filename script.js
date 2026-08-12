@@ -3,6 +3,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, setDoc, getDoc, getDocs, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCfwmK5b9xK0YAzPFCvGWCNex_N1B-5gII",
@@ -15,7 +16,37 @@ const firebaseConfig = {
 
 let app = null;
 let db = null;
+let messaging = null;
+const FCM_VAPID_PUBLIC_KEY = window.COSMICLOVE_FCM_VAPID_KEY || 'REMPLACE_CETTE_VALEUR_PAR_LA_CLE_WEB_PUSH_FIREBASE';
+const PUSH_SERVICE_WORKER = new URL('firebase-messaging-sw.js', window.location.href).toString();
+const APP_ICON_URL = new URL('cosmiclove-icon.svg', window.location.href).toString();
+
+// Secret partagé entre le frontend et /api/notify.js — protection minimale, à définir
+// aussi dans les variables d'environnement Vercel (NOTIFY_SHARED_SECRET).
+const NOTIFY_SHARED_SECRET = 'cosmiclove-ilyes-chayma-2026';
+
+/**
+ * Demande au serveur (route Vercel /api/notify) d'envoyer une notification push
+ * durable au partenaire, même si son téléphone est fermé. N'échoue jamais bruyamment :
+ * si l'API n'est pas encore déployée ou si le token du partenaire est absent, la fonction
+ * échoue silencieusement et le reste du site continue de fonctionner normalement.
+ */
+async function sendPushNotify(type, extra) {
+  try {
+    const sender = getUser();
+    if (!['Chayma', 'Ilyess'].includes(sender)) return;
+    const partner = sender === 'Chayma' ? 'Ilyess' : 'Chayma';
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, sender, partner, extra, secret: NOTIFY_SHARED_SECRET })
+    });
+  } catch (error) {
+    console.warn('sendPushNotify error (non bloquant):', error);
+  }
+}
 try {
+
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
 } catch (err) {
@@ -146,8 +177,10 @@ function initIdentity() {
 function setUser(name) {
   currentUser = name;
   localStorage.setItem('cosmiclove_user', name);
-  localStorage.setItem('identity', name);
+    localStorage.setItem('identity', name);
+  window.dispatchEvent(new CustomEvent('cosmiclove:identity-ready', { detail: { user: name } }));
   showToast(`Bienvenue dans notre coin, ${name} 🤍`);
+
 }
 
 function closeIdentityModal(modal) {
@@ -346,157 +379,211 @@ async function reverseGeocode(lat, lon) {
 
 let myLastGeocodedAt = 0;
 
-// Default fixed positions (Tunisia) used until GPS activates
-const DEFAULT_POSITIONS = {
-  Chayma: { lat: 34.6867, lng: 9.1022,  city: 'Regueb' },       // Regueb, Sidi Bouzid
-  Ilyess:  { lat: 35.8808, lng: 10.5396, city: 'Kalâa Kebira' }  // Kalâa Kebira, Sousse
-};
-
 function initLiveDistance() {
-  const btn      = document.getElementById('enable-location-btn');
+  const btn = document.getElementById('enable-location-btn');
+  const recenterBtn = document.getElementById('recenter-map-btn');
   const statusEl = document.getElementById('location-status');
-  if (!document.getElementById('love-map')) return;
+  const mapEl = document.getElementById('love-map');
+  if (!mapEl || typeof L === 'undefined' || !db) return;
 
-  const user      = getUser();
-  const otherUser = user === 'Chayma' ? 'Ilyess' : 'Chayma';
-  const positions = {
-    Chayma: { ...DEFAULT_POSITIONS.Chayma },
-    Ilyess:  { ...DEFAULT_POSITIONS.Ilyess }
+  const positions = { Chayma: null, Ilyess: null };
+  let markerC = null;
+  let markerI = null;
+  let loveLine = null;
+  let hasFittedOnce = false;
+  let routeRequestId = 0;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
   };
 
-  // ── Leaflet map setup ──────────────────────────────────────────────────
-  if (typeof L === 'undefined') return; // Leaflet not loaded yet
+  const validPosition = (value) => {
+    const lat = Number(value?.lat);
+    const lng = Number(value?.lng);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+      ? { lat, lng, city: value?.city || null, updatedAt: value?.updatedAt || null }
+      : null;
+  };
 
   const map = L.map('love-map', {
     zoomControl: true,
     scrollWheelZoom: false,
-    attributionControl: false
-  });
+    attributionControl: false,
+    preferCanvas: true
+  }).setView([34.95, 9.85], 6);
 
-  // Pastel cute tile layer (standard OSM tiles - more reliable than 3rd-party CDNs)
   const pastelFallbackTile = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Crect width='256' height='256' fill='%23FCE4EC'/%3E%3C/svg%3E";
-  const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '© OpenStreetMap',
-    errorTileUrl: pastelFallbackTile // never show a broken/hashed tile - instant pastel fallback instead
+  const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    subdomains: ['a', 'b', 'c'],
+    maxZoom: 19,
+    minZoom: 2,
+    attribution: '© OpenStreetMap contributors',
+    errorTileUrl: pastelFallbackTile,
+    updateWhenIdle: true,
+    keepBuffer: 3
   }).addTo(map);
 
-  const mapEl = document.getElementById('love-map');
-  if (mapEl) {
-    mapEl.classList.add('map-loading');
-    map.whenReady(() => mapEl.classList.remove('map-loading'));
-    setTimeout(() => mapEl.classList.remove('map-loading'), 1500); // never wait more than 1.5s, no matter what
-  }
+  mapEl.classList.add('map-loading');
+  tileLayer.once('load', () => mapEl.classList.remove('map-loading'));
+  window.setTimeout(() => mapEl.classList.remove('map-loading'), 2200);
 
-  // Heart icon factory
-  function heartIcon(color) {
-    return L.divIcon({
-      className: '',
-      html: `<div class="heart-marker-icon" style="color:${color};">💗</div>`,
-      iconSize:   [34, 34],
-      iconAnchor: [17, 34],
-      popupAnchor: [0, -36]
-    });
-  }
-
-  const markerC = L.marker(
-    [positions.Chayma.lat, positions.Chayma.lng],
-    { icon: heartIcon('#FF6FA8') }
-  ).addTo(map).bindPopup('<b>Chayma</b><br>' + positions.Chayma.city);
-
-  const markerI = L.marker(
-    [positions.Ilyess.lat, positions.Ilyess.lng],
-    { icon: heartIcon('#C06AC4') }
-  ).addTo(map).bindPopup('<b>Ilyess</b><br>' + positions.Ilyess.city);
-
-  // Dashed line connecting the two
-  let loveLine = L.polyline(
-    [[positions.Chayma.lat, positions.Chayma.lng],
-     [positions.Ilyess.lat, positions.Ilyess.lng]],
-    { color: '#FF6FA8', weight: 2, opacity: 0.6, dashArray: '8 8' }
-  ).addTo(map);
-
-  // Fit map to show both markers with padding
-  function fitMap() {
-    const bounds = L.latLngBounds(
-      [positions.Chayma.lat, positions.Chayma.lng],
-      [positions.Ilyess.lat, positions.Ilyess.lng]
-    );
-    map.fitBounds(bounds, { padding: [40, 40] });
-  }
-  fitMap();
-
-  // ── Stats updater ──────────────────────────────────────────────────────
-  function recalcAndRender() {
-    const c = positions.Chayma;
-    const i = positions.Ilyess;
-    const distKm = haversineKm(c.lat, c.lng, i.lat, i.lng);
-
-    const distEl = document.getElementById('live-distance-value');
-    const timeEl = document.getElementById('live-time-value');
-    if (distEl) distEl.textContent = `${distKm.toFixed(0)} km`;
-    if (timeEl) {
-      const h = Math.floor(distKm / 75);
-      const m = Math.round((distKm / 75 - h) * 60);
-      timeEl.textContent = `${h}h ${String(m).padStart(2,'0')}m`;
-    }
-
-    // Update widget subtitle
-    const desc = document.getElementById('distance-widget-desc');
-    if (desc) desc.textContent = `${c.city || 'Chayma'} ↔ ${i.city || 'Ilyess'}`;
-
-    // Update line + markers
-    markerC.setLatLng([c.lat, c.lng]).bindPopup(`<b>Chayma</b><br>${c.city || ''}`);
-    markerI.setLatLng([i.lat, i.lng]).bindPopup(`<b>Ilyess</b><br>${i.city || ''}`);
-    loveLine.setLatLngs([[c.lat, c.lng], [i.lat, i.lng]]);
-    fitMap();
-  }
-
-  // ── Firestore listener — both users' live positions ────────────────────
-  onSnapshot(collection(db, 'locations'), (snapshot) => {
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      if (positions[docSnap.id]) {
-        positions[docSnap.id] = { ...positions[docSnap.id], ...data };
-      }
-    });
-    recalcAndRender();
+  const escapePopup = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+  const heartIcon = (color, person) => L.divIcon({
+    className: 'heart-marker-wrapper',
+    html: `<span class="heart-marker-icon" style="--heart-color:${color}" aria-label="${person}" role="img">
+      <svg viewBox="0 0 48 52" role="presentation" focusable="false">
+        <path class="heart-marker-shadow" d="M24 45S5 33.2 5 19.7C5 12.5 9.9 7.7 16.1 7.7c3.6 0 6.5 1.8 7.9 4.7 1.5-2.9 4.4-4.7 7.9-4.7C38.1 7.7 43 12.5 43 19.7 43 33.2 24 45 24 45Z"/>
+        <path class="heart-marker-body" d="M24 43S6.5 32.2 6.5 19.9C6.5 13.4 10.8 9 16.4 9c3.4 0 6.2 1.8 7.6 4.6C25.4 10.8 28.2 9 31.6 9c5.6 0 9.9 4.4 9.9 10.9C41.5 32.2 24 43 24 43Z"/>
+        <path class="heart-marker-shine" d="M13.2 17.3c.8-2.5 2.6-3.8 5.1-3.8 1.1 0 2.1.3 2.9.8-2.7.1-4.8 1.3-6.1 3.8-.4.7-1.4.3-1.9-.8Z"/>
+      </svg>
+    </span>`,
+    iconSize: [46, 50],
+    iconAnchor: [23, 47],
+    popupAnchor: [0, -43]
   });
 
-  // ── Share my position button ───────────────────────────────────────────
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      if (statusEl) statusEl.textContent = "Géolocalisation non supportée 😕";
+  const fitMap = ({ force = false } = {}) => {
+    const available = [positions.Chayma, positions.Ilyess].filter(Boolean);
+    if (!available.length) {
+      map.setView([34.95, 9.85], 6, { animate: false });
       return;
     }
-    if (statusEl) statusEl.textContent = "Localisation en cours… 🔍";
-    btn.disabled = true;
+    if (available.length === 1) {
+      map.setView([available[0].lat, available[0].lng], 9, { animate: force });
+      return;
+    }
+    const bounds = L.latLngBounds(available.map((point) => [point.lat, point.lng]));
+    map.fitBounds(bounds, { padding: [54, 54], maxZoom: 10, animate: force, duration: 0.7 });
+  };
 
-    navigator.geolocation.watchPosition(
-      async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const now = Date.now();
-        let city = positions[user]?.city;
-        if (!city || now - myLastGeocodedAt > 5 * 60 * 1000) {
-          const geocoded = await reverseGeocode(lat, lng);
-          if (geocoded) { city = geocoded; myLastGeocodedAt = now; }
-        }
-        positions[user] = { lat, lng, city: city || positions[user]?.city || null };
-        await setDoc(doc(db, 'locations', user),
-          { lat, lng, city: city || null, updatedAt: now },
-          { merge: true }
-        );
-        if (statusEl) statusEl.textContent = `📍 Position partagée${city ? ` — ${city}` : ''} 💕`;
-        btn.textContent = '📍 Position active';
-      },
-      (err) => {
-        console.error('Geolocation error:', err);
-        if (statusEl) statusEl.textContent = "Active la localisation dans les réglages du navigateur 😕";
-        btn.disabled = false;
-      },
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 15000 }
-    );
+  const invalidateMap = () => {
+    requestAnimationFrame(() => window.setTimeout(() => map.invalidateSize({ pan: false }), 90));
+  };
+
+  const updateMarkers = ({ recenter = false } = {}) => {
+    const c = positions.Chayma;
+    const i = positions.Ilyess;
+    if (c && !markerC) markerC = L.marker([c.lat, c.lng], { icon: heartIcon('#FF6FA8', 'Chayma'), riseOnHover: true }).addTo(map);
+    if (i && !markerI) markerI = L.marker([i.lat, i.lng], { icon: heartIcon('#A66AC4', 'Ilyess'), riseOnHover: true }).addTo(map);
+    if (!c && markerC) { map.removeLayer(markerC); markerC = null; }
+    if (!i && markerI) { map.removeLayer(markerI); markerI = null; }
+    if (markerC && c) markerC.setLatLng([c.lat, c.lng]).bindPopup(`<b>Chayma</b><br>${escapePopup(c.city || 'Position partagée')}`);
+    if (markerI && i) markerI.setLatLng([i.lat, i.lng]).bindPopup(`<b>Ilyess</b><br>${escapePopup(i.city || 'Position partagée')}`);
+    if (c && i) {
+      const points = [[c.lat, c.lng], [i.lat, i.lng]];
+      if (!loveLine) loveLine = L.polyline(points, { color: '#E986A4', weight: 2, opacity: 0.75, dashArray: '7 9' }).addTo(map);
+      else loveLine.setLatLngs(points);
+    } else if (loveLine) {
+      map.removeLayer(loveLine);
+      loveLine = null;
+    }
+    if (recenter || !hasFittedOnce) {
+      fitMap({ force: recenter });
+      hasFittedOnce = true;
+    }
+    invalidateMap();
+  };
+
+  const formatDuration = (seconds) => {
+    const totalMinutes = Math.max(1, Math.round(Number(seconds) / 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours ? `${hours} h ${String(minutes).padStart(2, '0')} min` : `${minutes} min`;
+  };
+
+  const updateRouteStats = async () => {
+    const c = positions.Chayma;
+    const i = positions.Ilyess;
+    const requestId = ++routeRequestId;
+    const desc = document.getElementById('distance-widget-desc');
+    if (!c || !i) {
+      setText('live-distance-value', 'En attente des deux positions');
+      setText('live-time-value', 'En attente');
+      if (desc) desc.textContent = c || i ? 'Une position partagée · en attente de la seconde' : 'Partagez vos positions pour afficher la carte';
+      return;
+    }
+    if (desc) desc.textContent = `${c.city || 'Chayma'} ↔ ${i.city || 'Ilyess'}`;
+    setText('live-distance-value', 'Calcul de l’itinéraire…');
+    setText('live-time-value', 'Calcul…');
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${c.lng},${c.lat};${i.lng},${i.lat}?overview=false&alternatives=false&steps=false`;
+      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`OSRM HTTP ${response.status}`);
+      const payload = await response.json();
+      const route = payload?.routes?.[0];
+      if (!route || requestId !== routeRequestId) throw new Error('Itinéraire introuvable');
+      setText('live-distance-value', `${(route.distance / 1000).toFixed(1)} km`);
+      setText('live-time-value', formatDuration(route.duration));
+    } catch (error) {
+      console.warn('Driving route unavailable:', error);
+      if (requestId !== routeRequestId) return;
+      setText('live-distance-value', 'Itinéraire indisponible');
+      setText('live-time-value', 'Réessayez dans un instant');
+    }
+  };
+
+  const refreshMapFromSnapshot = (snapshot) => {
+    snapshot.forEach((docSnap) => {
+      if (docSnap.id === 'Chayma' || docSnap.id === 'Ilyess') positions[docSnap.id] = validPosition(docSnap.data());
+    });
+    updateMarkers();
+    updateRouteStats();
+    if (!positions.Chayma || !positions.Ilyess) {
+      if (statusEl) statusEl.textContent = 'Partagez chacun votre position pour afficher les deux cœurs.';
+    }
+  };
+
+  onSnapshot(collection(db, 'locations'), refreshMapFromSnapshot, (error) => {
+    console.error('Map locations listener error:', error);
+    if (statusEl) statusEl.textContent = 'Les positions ne sont pas disponibles pour le moment.';
+  });
+
+  recenterBtn?.addEventListener('click', () => {
+    invalidateMap();
+    fitMap({ force: true });
+    updateMarkers({ recenter: true });
+    showToast(positions.Chayma && positions.Ilyess ? 'Les deux cœurs sont au centre de la carte 💕' : 'Il manque encore une position pour centrer les deux cœurs.', !positions.Chayma || !positions.Ilyess);
+  });
+
+  window.addEventListener('love-map:visible', () => {
+    invalidateMap();
+    window.setTimeout(() => { fitMap({ force: false }); updateMarkers(); }, 140);
+  });
+  window.addEventListener('resize', invalidateMap, { passive: true });
+
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const user = getUser();
+    if (!user || !['Chayma', 'Ilyess'].includes(user)) {
+      if (statusEl) statusEl.textContent = 'Choisissez votre identité avant de partager votre position.';
+      return;
+    }
+    if (!navigator.geolocation) {
+      if (statusEl) statusEl.textContent = 'La géolocalisation n’est pas supportée par ce navigateur.';
+      return;
+    }
+    if (statusEl) statusEl.textContent = 'Localisation en cours… autorisez le GPS si nécessaire.';
+    btn.disabled = true;
+    navigator.geolocation.watchPosition(async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const now = Date.now();
+      let city = positions[user]?.city;
+      if (!city || now - myLastGeocodedAt > 5 * 60 * 1000) {
+        const geocoded = await reverseGeocode(lat, lng);
+        if (geocoded) { city = geocoded; myLastGeocodedAt = now; }
+      }
+      positions[user] = { lat, lng, city: city || null, updatedAt: now };
+      await setDoc(doc(db, 'locations', user), { lat, lng, city: city || null, updatedAt: now }, { merge: true });
+      updateMarkers({ recenter: true });
+      updateRouteStats();
+      if (statusEl) statusEl.textContent = `Position partagée${city ? ` — ${city}` : ''} · le cœur est à jour 💕`;
+      btn.textContent = '📍 Position active';
+    }, (error) => {
+      console.error('Geolocation error:', error);
+      if (statusEl) statusEl.textContent = 'Active la localisation dans les réglages du navigateur.';
+      btn.disabled = false;
+    }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 15000 });
   });
 }
 
@@ -534,6 +621,9 @@ function initTabNavigation() {
     if (targetView) {
       targetView.classList.add('active');
       playPing();
+      if (targetViewId === 'view-emotions') {
+        window.dispatchEvent(new CustomEvent('love-map:visible'));
+      }
     }
 
     navTabs.forEach(tab => {
@@ -655,7 +745,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   // ⚠️ CHAYMA : change ce code avant de déployer (ex: une date qui compte pour vous deux)
   const ACCESS_CODE = '0104';
-  const ACCESS_STORAGE_KEY = 'cosmiclove_access_granted';
+  // La préférence « Rester connecté » est séparée de l’ancien accès permanent.
+  // Ainsi, une ancienne autorisation ne contourne pas le nouveau comportement.
+  const ACCESS_REMEMBER_KEY = 'cosmiclove_access_remembered';
 
   function runUnlockSequence() {
     const padlockContainer = padlock.parentElement;
@@ -687,7 +779,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const accessForm = document.getElementById('access-code-form');
   const accessInput = document.getElementById('access-code-input');
   const accessError = document.getElementById('access-code-error');
+  const accessRememberInput = document.getElementById('access-remember-input');
   const accessCloseBtn = document.getElementById('access-code-close');
+  const sessionLockBtn = document.getElementById('session-lock-btn');
+
+  function isAccessRemembered() {
+    try {
+      return localStorage.getItem(ACCESS_REMEMBER_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function renderSessionLockButton() {
+    if (!sessionLockBtn) return;
+    const remembered = isAccessRemembered();
+    sessionLockBtn.textContent = remembered ? '🔓' : '🔒';
+    sessionLockBtn.title = remembered
+      ? 'Désactiver « Rester connecté » et redemander le PIN'
+      : 'Le code PIN sera demandé à chaque connexion';
+    sessionLockBtn.setAttribute('aria-label', sessionLockBtn.title);
+  }
+
+  function disableRememberedAccess() {
+    const remembered = isAccessRemembered();
+    try { localStorage.removeItem(ACCESS_REMEMBER_KEY); } catch (err) {}
+    renderSessionLockButton();
+
+    if (!remembered) {
+      showToast('Le code PIN sera demandé à chaque connexion.');
+      return;
+    }
+
+    showToast('« Rester connecté » est désactivé.');
+    // On reverrouille immédiatement afin que la modification soit visible.
+    setTimeout(() => window.location.reload(), 650);
+  }
+
+  renderSessionLockButton();
+  if (sessionLockBtn) sessionLockBtn.addEventListener('click', disableRememberedAccess);
 
   function openAccessModal() {
     if (!accessModal) return;
@@ -699,6 +829,9 @@ document.addEventListener('DOMContentLoaded', () => {
       accessInput.value = '';
       setTimeout(() => accessInput.focus(), 300);
     }
+    if (accessRememberInput) accessRememberInput.checked = false;
+    if (accessError) accessError.textContent = '';
+
   }
 
   function closeAccessModal() {
@@ -713,9 +846,19 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const value = (accessInput.value || '').trim();
       if (value === ACCESS_CODE) {
-        try { localStorage.setItem(ACCESS_STORAGE_KEY, '1'); } catch (err) {}
+        const rememberAccess = Boolean(accessRememberInput?.checked);
+        try {
+          if (rememberAccess) {
+            localStorage.setItem(ACCESS_REMEMBER_KEY, '1');
+          } else {
+            // Sans cette case, le PIN reste obligatoire à la prochaine connexion.
+            localStorage.removeItem(ACCESS_REMEMBER_KEY);
+          }
+        } catch (err) {}
+        renderSessionLockButton();
         closeAccessModal();
         runUnlockSequence();
+
       } else {
         playPop();
         if (accessError) accessError.textContent = 'Ce n\'est pas le bon code… réessaie 🤍';
@@ -750,10 +893,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const padlockContainer = padlock.parentElement;
       if (!padlockContainer || padlockContainer.classList.contains('unlocked')) return;
 
-      let alreadyGranted = false;
-      try { alreadyGranted = localStorage.getItem(ACCESS_STORAGE_KEY) === '1'; } catch (err) {}
+      const alreadyRemembered = isAccessRemembered();
 
-      if (alreadyGranted) {
+      if (alreadyRemembered) {
         runUnlockSequence();
       } else {
         openAccessModal();
@@ -826,9 +968,721 @@ document.addEventListener('DOMContentLoaded', () => {
 // CONTENT MODULES — Gallery, Dreams, Playlist, Emotions Extras, Univers
 // (ported from the complete previous version, kept feature-identical)
 // ==========================================================================
+function formatPreciseDate(timestamp) {
+  if (!timestamp) return 'Aucune visite enregistrée';
+  const value = typeof timestamp?.toMillis === 'function' ? timestamp.toMillis() : Number(timestamp);
+  if (!Number.isFinite(value)) return 'Aucune visite enregistrée';
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(new Date(value));
+}
+
+function openManagedModal(modal, closeButton) {
+  if (!modal) return () => {};
+  const close = () => {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => {
+      if (!modal.classList.contains('open')) modal.style.display = 'none';
+    }, 260);
+  };
+  if (closeButton) closeButton.addEventListener('click', close);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) close();
+  });
+  return () => {
+    modal.style.display = 'flex';
+    modal.offsetHeight;
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+}
+
+function latestReaction(reactions) {
+  if (!reactions || typeof reactions !== 'object') return '';
+  return Object.values(reactions)
+    .filter((item) => item && item.emoji)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0]?.emoji || '';
+}
+
+function setReactionBadge(target, emoji) {
+  if (!target) return;
+  target.querySelector('.reaction-badge')?.remove();
+  if (!emoji) return;
+  const badge = document.createElement('span');
+  badge.className = 'reaction-badge';
+  badge.textContent = emoji;
+  badge.setAttribute('aria-label', `Réaction ${emoji}`);
+  target.appendChild(badge);
+}
+
+const REACTION_CHOICES = ['💖', '🖇️', '🌷', '♾️', '😌', '🥹'];
+let activeReactionMenu = null;
+
+function closeReactionMenu() {
+  activeReactionMenu?.remove();
+  activeReactionMenu = null;
+}
+
+async function saveCardReaction(type, id, emoji, target) {
+  if (!db || !id) return;
+  const user = getUser();
+  const reaction = { emoji, by: user, updatedAt: Date.now() };
+  try {
+    if (type === 'mood') {
+      await setDoc(doc(db, 'moods', id), { reactions: { [user]: reaction } }, { merge: true });
+    } else {
+      await updateDoc(doc(db, 'notes', id), { [`reactions.${user}`]: reaction });
+    }
+    setReactionBadge(target, emoji);
+    showToast(`Réaction envoyée ${emoji}`);
+  } catch (error) {
+    console.error('Reaction save error:', error);
+    showToast('La réaction n’a pas pu être synchronisée.', true);
+  }
+}
+
+function attachLongPressReaction(target) {
+  if (!target || target.dataset.reactionBound === '1') return;
+  target.dataset.reactionBound = '1';
+  let timer = null;
+  let longPressTriggered = false;
+
+  const cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+
+  const openMenu = (clientX, clientY) => {
+    closeReactionMenu();
+    const menu = document.createElement('div');
+    menu.className = 'reaction-menu';
+    menu.setAttribute('role', 'menu');
+    REACTION_CHOICES.forEach((emoji) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = emoji;
+      button.title = `Réagir ${emoji}`;
+      button.setAttribute('aria-label', `Réagir ${emoji}`);
+      button.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await saveCardReaction(target.dataset.reactionType, target.dataset.reactionId, emoji, target);
+        closeReactionMenu();
+      });
+      menu.appendChild(button);
+    });
+    document.body.appendChild(menu);
+    const width = menu.offsetWidth || 250;
+    const left = Math.min(Math.max(8, clientX - width / 2), window.innerWidth - width - 8);
+    const top = Math.max(8, clientY - 58);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    activeReactionMenu = menu;
+  };
+
+  target.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    longPressTriggered = false;
+    timer = setTimeout(() => {
+      longPressTriggered = true;
+      openMenu(event.clientX, event.clientY);
+      if (navigator.vibrate) navigator.vibrate(18);
+    }, 500);
+  });
+  target.addEventListener('pointerup', cancel);
+  target.addEventListener('pointerleave', cancel);
+  target.addEventListener('pointercancel', cancel);
+  target.addEventListener('contextmenu', (event) => event.preventDefault());
+  target.addEventListener('click', (event) => {
+    if (longPressTriggered) {
+      event.preventDefault();
+      event.stopPropagation();
+      longPressTriggered = false;
+    }
+  }, true);
+}
+
+document.addEventListener('pointerdown', (event) => {
+  if (activeReactionMenu && !activeReactionMenu.contains(event.target)) closeReactionMenu();
+});
+
+function initDynamicLetters() {
+  const stack = document.getElementById('letters-stack');
+  const addButton = document.getElementById('add-letter-btn');
+  const editorModal = document.getElementById('letter-editor-modal');
+  const editorForm = document.getElementById('letter-editor-form');
+  const editorOpen = openManagedModal(editorModal, document.getElementById('letter-editor-close'));
+  const editorTitle = editorModal?.querySelector('.modal-title');
+  const titleInput = document.getElementById('letter-title-input');
+  const bodyInput = document.getElementById('letter-body-input');
+  const submitButton = editorForm?.querySelector('button[type="submit"]');
+  if (!stack || !db) return;
+
+  let editingLetterId = null;
+  let expandedLetterId = null;
+
+  const resetEditor = () => {
+    editingLetterId = null;
+    editorForm?.reset();
+    if (editorTitle) editorTitle.textContent = 'Écrire une lettre';
+    if (submitButton) submitButton.textContent = 'Sceller la lettre 💌';
+  };
+
+  addButton?.addEventListener('click', () => {
+    resetEditor();
+    editorOpen();
+  });
+
+  const fillLetterBody = (bodyEl, body) => {
+    if (!bodyEl) return;
+    bodyEl.innerHTML = '';
+    String(body || 'Une lettre encore secrète…')
+      .split(/\n{2,}|\n/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .forEach((paragraph, index) => {
+        const line = document.createElement('p');
+        line.style.setProperty('--line-delay', `${index * 70}ms`);
+        line.textContent = paragraph;
+        bodyEl.appendChild(line);
+      });
+  };
+
+  const collapseCard = (card) => {
+    if (!card) return;
+    card.classList.remove('is-expanded');
+    card.setAttribute('aria-expanded', 'false');
+    const closedPaper = card.querySelector('.letter-paper-reveal');
+    if (closedPaper) closedPaper.setAttribute('aria-hidden', 'true');
+    const closedBody = card.querySelector('.dynamic-letter-body-content');
+    if (closedBody) closedBody.scrollTop = 0;
+    if (expandedLetterId === card.dataset.letterId) expandedLetterId = null;
+  };
+
+  const expandCard = (card, letter) => {
+    stack.querySelectorAll('.dynamic-letter-card.is-expanded').forEach((other) => {
+      if (other !== card) collapseCard(other);
+    });
+    card.classList.add('is-expanded');
+    card.setAttribute('aria-expanded', 'true');
+    const openPaper = card.querySelector('.letter-paper-reveal');
+    if (openPaper) openPaper.setAttribute('aria-hidden', 'false');
+    fillLetterBody(card.querySelector('.dynamic-letter-body-content'), letter.body);
+    const signature = card.querySelector('.dynamic-letter-signature');
+    if (signature) signature.textContent = `Avec tout mon cœur, ${letter.author || 'notre amour'} 🤍`;
+    expandedLetterId = letter.id;
+    window.setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+  };
+
+  const startEdit = (letter) => {
+    editingLetterId = letter.id;
+    if (editorTitle) editorTitle.textContent = 'Modifier la lettre';
+    if (submitButton) submitButton.textContent = 'Enregistrer les changements';
+    if (titleInput) titleInput.value = letter.title || '';
+    if (bodyInput) bodyInput.value = letter.body || '';
+    editorOpen();
+  };
+
+  const removeLetter = async (letter, card) => {
+    const title = letter.title || 'cette lettre';
+    if (!window.confirm(`Supprimer « ${title} » ? Cette action est définitive.`)) return;
+    try {
+      await deleteDoc(doc(db, 'letters', letter.id));
+      if (expandedLetterId === letter.id) expandedLetterId = null;
+      showToast('La lettre a été retirée avec douceur 🤍');
+    } catch (error) {
+      console.error('Letter delete error:', error);
+      showToast('Impossible de supprimer cette lettre.', true);
+    }
+  };
+
+  function renderLetters(letters) {
+    stack.innerHTML = '';
+    if (!letters.length) {
+      stack.innerHTML = '<div class="letters-empty-state">Nos lettres vont apparaître ici… écris le premier chapitre 🤍</div>';
+      return;
+    }
+    letters.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    letters.forEach((letter, index) => {
+      const card = document.createElement('article');
+      card.className = 'dynamic-letter-card';
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-expanded', 'false');
+      card.dataset.letterId = letter.id;
+      const preview = String(letter.body || '').replace(/\s+/g, ' ').trim();
+      card.innerHTML = `
+        <div class="letter-envelope">
+          <span class="letter-envelope-lining" aria-hidden="true"></span>
+          <span class="letter-envelope-left-fold" aria-hidden="true"></span>
+          <span class="letter-envelope-right-fold" aria-hidden="true"></span>
+          <span class="letter-envelope-bottom-fold" aria-hidden="true"></span>
+          <span class="letter-envelope-flap" aria-hidden="true"><svg class="letter-envelope-flap-outline" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false"><path d="M 0 0 L 50 100 L 100 0" /></svg></span>
+          <div class="letter-envelope-content">
+            <div class="letter-sheet-kicker">une lettre pour toi · ${String(index + 1).padStart(2, '0')}</div>
+            <div class="letter-card-actions" aria-label="Actions de la lettre">
+              <button type="button" class="letter-icon-btn letter-edit-btn" data-letter-action="edit" aria-label="Modifier la lettre" title="Modifier">✎</button>
+              <button type="button" class="letter-icon-btn letter-delete-btn" data-letter-action="delete" aria-label="Supprimer la lettre" title="Supprimer">×</button>
+            </div>
+            <h3 class="dynamic-letter-title">${escapeHTML(letter.title || 'Sans titre')}</h3>
+            <div class="dynamic-letter-meta"><span>Écrite par ${escapeHTML(letter.author || 'Anon')}</span><span>${escapeHTML(formatPreciseDate(letter.createdAt))}</span></div>
+          </div>
+          <div class="letter-paper-reveal" aria-hidden="true">
+            <div class="letter-paper-heading">
+              <span class="letter-paper-kicker">une lettre pour toi · ${String(index + 1).padStart(2, '0')}</span>
+              <h3 class="letter-paper-title">${escapeHTML(letter.title || 'Sans titre')}</h3>
+              <div class="letter-paper-meta"><span>Écrite par ${escapeHTML(letter.author || 'Anon')}</span><span>${escapeHTML(formatPreciseDate(letter.createdAt))}</span></div>
+            </div>
+            <div class="dynamic-letter-body">
+              <div class="dynamic-letter-body-content" tabindex="0" aria-label="Corps de la lettre, défilement disponible"></div>
+              <p class="dynamic-letter-signature"></p>
+              <button type="button" class="dynamic-letter-fold">Replier doucement <span aria-hidden="true">↑</span></button>
+            </div>
+          </div>
+          <span class="letter-envelope-seal" aria-hidden="true">♡</span>
+        </div>
+      `;
+
+      const toggleCard = () => {
+        if (card.classList.contains('is-expanded')) collapseCard(card);
+        else expandCard(card, letter);
+      };
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('button')) return;
+        toggleCard();
+      });
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleCard();
+        }
+      });
+      card.querySelector('.dynamic-letter-open')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleCard();
+      });
+      card.querySelector('.dynamic-letter-fold')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        collapseCard(card);
+      });
+      card.querySelector('[data-letter-action="edit"]')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        startEdit(letter);
+      });
+      card.querySelector('[data-letter-action="delete"]')?.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await removeLetter(letter, card);
+      });
+      stack.appendChild(card);
+      if (expandedLetterId === letter.id) expandCard(card, letter);
+    });
+  }
+
+  onSnapshot(collection(db, 'letters'), (snapshot) => {
+    const letters = [];
+    snapshot.forEach((snap) => letters.push({ id: snap.id, ...snap.data() }));
+    renderLetters(letters);
+  }, (error) => {
+    console.error('Letters listener error:', error);
+    const status = document.getElementById('letters-sync-status');
+    if (status) status.textContent = 'Synchronisation des lettres indisponible';
+  });
+
+  editorForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const title = titleInput?.value.trim() || '';
+    const body = bodyInput?.value.trim() || '';
+    if (!title || !body) return;
+    if (submitButton) submitButton.disabled = true;
+    try {
+      if (editingLetterId) {
+        await updateDoc(doc(db, 'letters', editingLetterId), { title, body, editedAt: Date.now() });
+        showToast('La lettre a été mise à jour avec soin ✨');
+      } else {
+        await addDoc(collection(db, 'letters'), { title, body, author: getUser(), createdAt: Date.now() });
+        showToast('Lettre scellée et synchronisée 💌');
+        sendPushNotify('letter', { title });
+      }
+      resetEditor();
+      document.getElementById('letter-editor-close')?.click();
+    } catch (error) {
+      console.error('Letter save error:', error);
+      showToast('Impossible d’enregistrer cette lettre.', true);
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+}
+
+function initHeroTags() {
+  const row = document.getElementById('hero-tags-row');
+  const manageButton = document.getElementById('manage-hero-tags-btn');
+  const modal = document.getElementById('hero-tags-modal');
+  const open = openManagedModal(modal, document.getElementById('hero-tags-close'));
+  const form = document.getElementById('hero-tags-form');
+  const input = document.getElementById('hero-tag-input');
+  const list = document.getElementById('hero-tags-editor-list');
+  if (!row || !db) return;
+
+  let tags = [];
+  const render = () => {
+    row.innerHTML = '';
+    if (!tags.length) {
+      row.innerHTML = '<span class="hero-tags-empty">Ajoute les mots doux de notre histoire…</span>';
+    } else {
+      tags.forEach((tag, index) => {
+        const pill = document.createElement('span');
+        pill.className = `keyword-pill pill-delay-${index % 5}`;
+        pill.textContent = tag.text;
+        row.appendChild(pill);
+      });
+    }
+    if (!list) return;
+    list.innerHTML = '';
+    if (!tags.length) {
+      list.innerHTML = '<p class="access-code-hint">Aucun slogan pour le moment.</p>';
+      return;
+    }
+    tags.forEach((tag) => {
+      const editorRow = document.createElement('div');
+      editorRow.className = 'hero-tag-editor-row';
+      editorRow.dataset.id = tag.id;
+      editorRow.innerHTML = `
+        <input type="text" value="${escapeHTML(tag.text)}" maxlength="40" aria-label="Modifier le slogan">
+        <button type="button" data-action="save">Enregistrer</button>
+        <button type="button" data-action="delete" aria-label="Supprimer le slogan">×</button>
+      `;
+      list.appendChild(editorRow);
+    });
+  };
+
+  if (manageButton) manageButton.addEventListener('click', open);
+  onSnapshot(collection(db, 'heroTags'), (snapshot) => {
+    tags = [];
+    snapshot.forEach((snap) => tags.push({ id: snap.id, ...snap.data() }));
+    tags.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    render();
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const text = input?.value.trim() || '';
+    if (!text) return;
+    await addDoc(collection(db, 'heroTags'), { text, createdAt: Date.now(), createdBy: getUser() });
+    form.reset();
+  });
+
+  list?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button');
+    const rowEl = event.target.closest('.hero-tag-editor-row');
+    if (!button || !rowEl) return;
+    const id = rowEl.dataset.id;
+    if (button.dataset.action === 'delete') {
+      await deleteDoc(doc(db, 'heroTags', id));
+      return;
+    }
+    if (button.dataset.action === 'save') {
+      const value = rowEl.querySelector('input')?.value.trim() || '';
+      if (value) await updateDoc(doc(db, 'heroTags', id), { text: value, updatedAt: Date.now() });
+    }
+  });
+}
+
+let pushForegroundHandlerBound = false;
+
+function isPushConfigured() {
+  return Boolean(
+    FCM_VAPID_PUBLIC_KEY &&
+    !FCM_VAPID_PUBLIC_KEY.startsWith('REMPLACE_CETTE_VALEUR')
+  );
+}
+
+async function subscribeCurrentDeviceToPush(user, { askPermission = true } = {}) {
+  if (!db || !app) throw new Error('firebase_unavailable');
+  if (!isPushConfigured()) throw new Error('vapid_not_configured');
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) throw new Error('push_not_supported');
+  if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(window.location.hostname)) throw new Error('https_required');
+
+  let permission = Notification.permission;
+  if (permission !== 'granted' && askPermission) permission = await Notification.requestPermission();
+  if (permission !== 'granted') throw new Error('permission_denied');
+
+  if (!messaging) messaging = getMessaging(app);
+  const serviceWorkerRegistration = await navigator.serviceWorker.register(PUSH_SERVICE_WORKER, { scope: new URL('./', window.location.href).pathname });
+  await navigator.serviceWorker.ready;
+  const token = await getToken(messaging, {
+    vapidKey: FCM_VAPID_PUBLIC_KEY,
+    serviceWorkerRegistration
+  });
+  if (!token) throw new Error('token_unavailable');
+
+  const tokenId = encodeURIComponent(token).replace(/%/g, '_');
+  await setDoc(doc(db, 'pushSubscriptions', tokenId), {
+    token,
+    user,
+    enabled: true,
+    updatedAt: Date.now(),
+    userAgent: navigator.userAgent,
+    platform: navigator.platform || 'unknown'
+  }, { merge: true });
+
+  localStorage.setItem('cosmiclove_fcm_token', token);
+  localStorage.setItem('cosmiclove_push_enabled', '1');
+
+  if (!pushForegroundHandlerBound) {
+    onMessage(messaging, async (payload) => {
+      const data = payload?.data || {};
+      const title = data.title || payload?.notification?.title || 'CosmicLove';
+      const body = data.body || payload?.notification?.body || 'Quelqu’un est dans notre Univers ✨';
+      showToast(body);
+      if (Notification.permission === 'granted') {
+        const registration = await navigator.serviceWorker.ready;
+        registration.showNotification(title, {
+          body,
+          icon: APP_ICON_URL,
+          badge: APP_ICON_URL,
+          tag: `cosmiclove-${data.sender || 'presence'}`,
+          data: { link: data.link || '/' }
+        });
+      }
+    });
+    pushForegroundHandlerBound = true;
+  }
+  return token;
+}
+
+function explainPushError(error) {
+  const messages = {
+    vapid_not_configured: 'Ajoute la clé Web Push Firebase dans la configuration avant d’activer les notifications.',
+    push_not_supported: 'Les notifications push ne sont pas prises en charge par ce navigateur.',
+    https_required: 'Les notifications push nécessitent une adresse HTTPS.',
+    permission_denied: 'L’autorisation des notifications a été refusée sur cet appareil.',
+    token_unavailable: 'Firebase n’a pas encore fourni de jeton pour cet appareil.',
+    firebase_unavailable: 'Firebase est momentanément indisponible.'
+  };
+  return messages[error?.message] || 'Impossible d’activer les notifications push pour le moment.';
+}
+
+function initPresence() {
+  const widget = document.getElementById('presence-widget');
+  const details = document.getElementById('presence-widget-details');
+  const label = document.getElementById('presence-widget-label');
+  const dot = document.getElementById('presence-dot');
+  const notificationButton = document.getElementById('enable-notifications-btn');
+  if (!widget || !db) return;
+  let started = false;
+  let firstSnapshot = true;
+  let latestPresence = {};
+  const presenceSessionId = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  const render = () => {
+    const names = ['Chayma', 'Ilyess'];
+    const current = getUser();
+    const partner = current === 'Chayma' ? 'Ilyess' : 'Chayma';
+    const partnerData = latestPresence[partner] || {};
+    const online = partnerData.online === true;
+    dot?.classList.toggle('is-online', online);
+    if (label) label.textContent = online ? `${partner} est dans notre Univers ✨` : `Dernière visite de ${partner}`;
+    if (details) {
+      details.innerHTML = names.map((name) => {
+        const data = latestPresence[name] || {};
+        return `<div><strong>${escapeHTML(name)}</strong> — ${escapeHTML(formatPreciseDate(data.lastActive))}${data.online ? ' · en ligne' : ''}</div>`;
+      }).join('');
+    }
+  };
+
+  const notifyPartner = (partner) => {
+    const message = `${partner} est en ligne dans notre Univers ✨`;
+    showToast(message);
+    playPing();
+    // When FCM is configured, the Cloud Function sends the durable push.
+    // Keep a local fallback only until the one-time FCM setup is completed.
+    if (!isPushConfigured() && window.Notification && Notification.permission === 'granted') {
+      try {
+        navigator.serviceWorker?.ready.then((registration) => registration.showNotification('CosmicLove', {
+          body: message,
+          icon: APP_ICON_URL,
+          badge: APP_ICON_URL,
+          data: { link: window.location.href }
+        }));
+      } catch (error) { console.warn('Local notification error:', error); }
+    }
+  };
+
+  const start = () => {
+    if (started) return;
+    const user = getUser();
+    if (!['Chayma', 'Ilyess'].includes(user)) return;
+    started = true;
+
+    const writePresence = async (online = true) => {
+      try {
+        await setDoc(doc(db, 'presence', user), { online, lastActive: Date.now(), user, sessionId: presenceSessionId }, { merge: true });
+      } catch (error) { console.warn('Presence write error:', error); }
+    };
+    const refresh = () => writePresence(document.visibilityState !== 'hidden');
+    refresh();
+    // Nouvelle session détectée localement : on notifie le partenaire une seule fois,
+    // pas à chaque battement de présence de 30s.
+    sendPushNotify('presence');
+    const interval = setInterval(refresh, 30000);
+    window.addEventListener('beforeunload', () => { clearInterval(interval); writePresence(false); });
+    document.addEventListener('visibilitychange', refresh);
+
+    onSnapshot(collection(db, 'presence'), (snapshot) => {
+      const next = {};
+      snapshot.forEach((snap) => { next[snap.id] = snap.data(); });
+      const partner = user === 'Chayma' ? 'Ilyess' : 'Chayma';
+      const oldPartner = latestPresence[partner];
+      latestPresence = next;
+      render();
+      const newPartnerSession = next[partner]?.online === true && (
+        !oldPartner?.online ||
+        (next[partner]?.sessionId && next[partner]?.sessionId !== oldPartner?.sessionId)
+      );
+      if (!firstSnapshot && newPartnerSession) notifyPartner(partner);
+      firstSnapshot = false;
+    });
+  };
+
+  const updatePushButtonState = () => {
+    const enabled = localStorage.getItem('cosmiclove_push_enabled') === '1' && Notification.permission === 'granted';
+    notificationButton?.classList.toggle('is-enabled', enabled);
+    if (notificationButton) {
+      notificationButton.title = enabled
+        ? 'Notifications push actives sur cet appareil'
+        : 'Activer les notifications push sur cet appareil';
+      notificationButton.setAttribute('aria-label', notificationButton.title);
+    }
+  };
+
+  notificationButton?.addEventListener('click', async () => {
+    notificationButton.disabled = true;
+    try {
+      await subscribeCurrentDeviceToPush(getUser(), { askPermission: true });
+      updatePushButtonState();
+      showToast('Notifications push activées sur cet appareil 🔔');
+    } catch (error) {
+      console.warn('Push subscription error:', error);
+      showToast(explainPushError(error), true);
+    } finally {
+      notificationButton.disabled = false;
+    }
+  });
+
+  const silentlyRefreshPushSubscription = async () => {
+    if (!isPushConfigured() || !('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      await subscribeCurrentDeviceToPush(getUser(), { askPermission: false });
+      updatePushButtonState();
+    } catch (error) {
+      console.warn('Silent push refresh skipped:', error);
+    }
+  };
+
+  window.addEventListener('cosmiclove:identity-ready', () => {
+    start();
+    silentlyRefreshPushSubscription();
+  }, { once: true });
+  if (['Chayma', 'Ilyess'].includes(getUser())) {
+    start();
+    updatePushButtonState();
+    silentlyRefreshPushSubscription();
+  }
+}
+
+function initAutonomousSurprise() {
+  const content = document.getElementById('surprise-letter-content');
+  const manageButton = document.getElementById('manage-surprise-btn');
+  const editorModal = document.getElementById('surprise-editor-modal');
+  const editorOpen = openManagedModal(editorModal, document.getElementById('surprise-editor-close'));
+  const editorForm = document.getElementById('surprise-editor-form');
+  const titleInput = document.getElementById('surprise-title-input');
+  const bodyInput = document.getElementById('surprise-body-input');
+
+  const render = (surprise) => {
+    if (!content) return;
+    content.innerHTML = '';
+    const title = document.createElement('p');
+    title.className = 'letter-line surprise-letter-title';
+    title.style.setProperty('--d', '0');
+    title.textContent = surprise?.title || 'Une surprise rien que pour toi';
+    content.appendChild(title);
+
+    const paragraphs = String(surprise?.body || 'Une petite pensée est encore en train de se préparer pour toi…')
+      .split(/\n{2,}|\n/)
+      .map((text) => text.trim())
+      .filter(Boolean);
+    paragraphs.forEach((text, index) => {
+      const paragraph = document.createElement('p');
+      paragraph.className = 'letter-line';
+      paragraph.style.setProperty('--d', String(index + 1));
+      paragraph.textContent = text;
+      content.appendChild(paragraph);
+    });
+
+    const signature = document.createElement('p');
+    signature.className = 'letter-line letter-signature';
+    signature.style.setProperty('--d', String(paragraphs.length + 1));
+    signature.textContent = surprise?.author ? `Scellée par ${surprise.author} 🤍` : 'Scellée avec amour 🤍';
+    content.appendChild(signature);
+  };
+
+  if (db) {
+    onSnapshot(doc(db, 'surprise', 'current'), (snapshot) => {
+      render(snapshot.exists() ? snapshot.data() : null);
+    }, (error) => {
+      console.warn('Surprise listener error:', error);
+      render(null);
+    });
+  } else {
+    render(null);
+  }
+
+  manageButton?.addEventListener('click', () => {
+    document.getElementById('modal-close')?.click();
+    setTimeout(editorOpen, 180);
+  });
+
+  editorForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const title = titleInput?.value.trim() || '';
+    const body = bodyInput?.value.trim() || '';
+    if (!title || !body || !db) return;
+    const submit = editorForm.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    try {
+      await setDoc(doc(db, 'surprise', 'current'), {
+        title,
+        body,
+        author: getUser(),
+        updatedAt: Date.now()
+      }, { merge: true });
+      editorForm.reset();
+      document.getElementById('surprise-editor-close')?.click();
+      showToast('La surprise est scellée à part 💌');
+    } catch (error) {
+      console.error('Surprise save error:', error);
+      showToast('Impossible de sceller la surprise.', true);
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+}
+
+function initDynamicModules() {
+  initDynamicLetters();
+  initAutonomousSurprise();
+  initHeroTags();
+  initPresence();
+}
+
 function initContentModules() {
+  initDynamicModules();
 
   // ---- 5. PHOTO GALLERY (Cloudinary upload + Firestore) ----
+
   const uploadModal = document.getElementById('upload-modal');
   const addPhotoBtn = document.getElementById('add-photo-btn');
   const uploadModalClose = document.getElementById('upload-modal-close');
@@ -1586,23 +2440,53 @@ function initContentModules() {
   const moodIlyessEl = document.getElementById('mood-ilyess');
   const moodLabelC   = document.getElementById('mood-label-chayma');
   const moodLabelI   = document.getElementById('mood-label-ilyess');
+  const moodCardC    = moodChaymaEl?.closest('.mood-person');
+  const moodCardI    = moodIlyessEl?.closest('.mood-person');
 
-  // Listen for both users' moods in real-time
-  onSnapshot(doc(db, 'moods', 'Chayma'), (snap) => {
-    if (snap.exists()) {
-      const { emoji, label } = snap.data();
-      if (moodChaymaEl) { moodChaymaEl.textContent = emoji || '❓'; bumpEl(moodChaymaEl); }
-      if (moodLabelC)   moodLabelC.textContent = label || '—';
-    }
+  [
+    [moodCardC, 'Chayma'],
+    [moodCardI, 'Ilyess']
+  ].forEach(([card, id]) => {
+    if (!card) return;
+    card.dataset.reactionType = 'mood';
+    card.dataset.reactionId = id;
+    attachLongPressReaction(card);
   });
 
-  onSnapshot(doc(db, 'moods', 'Ilyess'), (snap) => {
-    if (snap.exists()) {
-      const { emoji, label } = snap.data();
-      if (moodIlyessEl) { moodIlyessEl.textContent = emoji || '❓'; bumpEl(moodIlyessEl); }
-      if (moodLabelI)   moodIlyessEl && (moodLabelI.textContent = label || '—');
-    }
-  });
+  // Listen for both users' moods in real-time. The first snapshot is silent;
+  // only a real change made by the partner creates a local notification.
+  const observedMoods = {};
+  const watchMood = (name, emojiEl, labelEl, card) => {
+    onSnapshot(doc(db, 'moods', name), (snap) => {
+      const data = snap.exists() ? snap.data() : {};
+      const previous = observedMoods[name];
+      if (emojiEl) { emojiEl.textContent = data.emoji || '❓'; if (previous) bumpEl(emojiEl); }
+      if (labelEl) labelEl.textContent = data.label || '—';
+      setReactionBadge(card, latestReaction(data.reactions));
+
+      const partnerChanged = previous && getUser() !== name && (
+        previous.emoji !== data.emoji || previous.label !== data.label
+      );
+      if (partnerChanged) {
+        const moodText = data.label ? `${data.label} ${data.emoji || ''}` : (data.emoji || 'a changé d’humeur');
+        const message = `${name} a changé d’humeur : ${moodText}`;
+        showToast(message);
+        playPing();
+        if (!isPushConfigured() && window.Notification && Notification.permission === 'granted') {
+          navigator.serviceWorker?.ready.then((registration) => registration.showNotification(`${name} a changé d’humeur 💫`, {
+            body: moodText,
+            icon: APP_ICON_URL,
+            badge: APP_ICON_URL,
+            data: { link: window.location.href }
+          })).catch(() => {});
+        }
+      }
+      observedMoods[name] = data;
+    });
+  };
+
+  watchMood('Chayma', moodChaymaEl, moodLabelC, moodCardC);
+  watchMood('Ilyess', moodIlyessEl, moodLabelI, moodCardI);
 
   function bumpEl(el) {
     el.classList.remove('bump');
@@ -1624,6 +2508,7 @@ function initContentModules() {
       try {
         await setDoc(doc(db, 'moods', user), { emoji, label, updatedAt: Date.now() }, { merge: true });
         showToast(`Humeur partagée : ${emoji} ${label} 💕`);
+        sendPushNotify('mood', { emoji, label });
       } catch (err) {
         console.error('Mood save error:', err);
         showToast('Erreur de sauvegarde de l\'humeur', true);
@@ -1806,16 +2691,21 @@ function initContentModules() {
         return;
       }
 
-      notes.forEach((note) => {
+            notes.forEach((note) => {
         const card = document.createElement('div');
         card.className = 'note-card';
+        card.dataset.reactionType = 'note';
+        card.dataset.reactionId = note.id;
         card.innerHTML = `
           ${escapeHTML(note.text)}
           <span class="note-card-author">— ${escapeHTML(note.author || 'Anon')}</span>
           <button class="note-delete-btn" data-id="${note.id}">&times;</button>
         `;
+        setReactionBadge(card, latestReaction(note.reactions));
+        attachLongPressReaction(card);
         corkboard.appendChild(card);
       });
+
     });
 
     corkboard.addEventListener('click', async (e) => {
