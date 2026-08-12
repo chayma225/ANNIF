@@ -20,31 +20,6 @@ let messaging = null;
 const FCM_VAPID_PUBLIC_KEY = window.COSMICLOVE_FCM_VAPID_KEY || 'REMPLACE_CETTE_VALEUR_PAR_LA_CLE_WEB_PUSH_FIREBASE';
 const PUSH_SERVICE_WORKER = new URL('firebase-messaging-sw.js', window.location.href).toString();
 const APP_ICON_URL = new URL('cosmiclove-icon.svg', window.location.href).toString();
-
-// Secret partagé entre le frontend et /api/notify.js — protection minimale, à définir
-// aussi dans les variables d'environnement Vercel (NOTIFY_SHARED_SECRET).
-const NOTIFY_SHARED_SECRET = 'cosmiclove-ilyes-chayma-2026';
-
-/**
- * Demande au serveur (route Vercel /api/notify) d'envoyer une notification push
- * durable au partenaire, même si son téléphone est fermé. N'échoue jamais bruyamment :
- * si l'API n'est pas encore déployée ou si le token du partenaire est absent, la fonction
- * échoue silencieusement et le reste du site continue de fonctionner normalement.
- */
-async function sendPushNotify(type, extra) {
-  try {
-    const sender = getUser();
-    if (!['Chayma', 'Ilyess'].includes(sender)) return;
-    const partner = sender === 'Chayma' ? 'Ilyess' : 'Chayma';
-    await fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, sender, partner, extra, secret: NOTIFY_SHARED_SECRET })
-    });
-  } catch (error) {
-    console.warn('sendPushNotify error (non bloquant):', error);
-  }
-}
 try {
 
   app = initializeApp(firebaseConfig);
@@ -719,6 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // HEART PADLOCK UNLOCKING & CONFETTI EXPLOSION
   // ==========================================================================
   const padlock = document.getElementById('main-padlock');
+  const padlockOpenBtn = document.getElementById('padlock-open-btn');
   const gateOverlay = document.getElementById('countdown-gate');
   const mainContent = document.getElementById('main-content');
   const countdownWidget = document.getElementById('gate-countdown');
@@ -888,20 +864,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  if (padlock) {
-    padlock.addEventListener('click', () => {
-      const padlockContainer = padlock.parentElement;
-      if (!padlockContainer || padlockContainer.classList.contains('unlocked')) return;
+  const handlePadlockOpen = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const padlockContainer = padlock?.parentElement;
+    if (!padlockContainer || padlockContainer.classList.contains('unlocked')) return;
 
-      const alreadyRemembered = isAccessRemembered();
+    const alreadyRemembered = isAccessRemembered();
+    if (alreadyRemembered) {
+      runUnlockSequence();
+    } else {
+      openAccessModal();
+    }
+  };
 
-      if (alreadyRemembered) {
-        runUnlockSequence();
-      } else {
-        openAccessModal();
-      }
-    });
-  }
+  if (padlock) padlock.addEventListener('click', handlePadlockOpen);
+  if (padlockOpenBtn) padlockOpenBtn.addEventListener('click', handlePadlockOpen);
 
   // ==========================================================================
   // CONFETTI EXPLOSION - PREMIUM CELEBRATION
@@ -1302,7 +1280,6 @@ function initDynamicLetters() {
       } else {
         await addDoc(collection(db, 'letters'), { title, body, author: getUser(), createdAt: Date.now() });
         showToast('Lettre scellée et synchronisée 💌');
-        sendPushNotify('letter', { title });
       }
       resetEditor();
       document.getElementById('letter-editor-close')?.click();
@@ -1523,9 +1500,6 @@ function initPresence() {
     };
     const refresh = () => writePresence(document.visibilityState !== 'hidden');
     refresh();
-    // Nouvelle session détectée localement : on notifie le partenaire une seule fois,
-    // pas à chaque battement de présence de 30s.
-    sendPushNotify('presence');
     const interval = setInterval(refresh, 30000);
     window.addEventListener('beforeunload', () => { clearInterval(interval); writePresence(false); });
     document.addEventListener('visibilitychange', refresh);
@@ -2508,7 +2482,6 @@ function initContentModules() {
       try {
         await setDoc(doc(db, 'moods', user), { emoji, label, updatedAt: Date.now() }, { merge: true });
         showToast(`Humeur partagée : ${emoji} ${label} 💕`);
-        sendPushNotify('mood', { emoji, label });
       } catch (err) {
         console.error('Mood save error:', err);
         showToast('Erreur de sauvegarde de l\'humeur', true);

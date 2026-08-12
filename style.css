@@ -8786,3 +8786,85 @@ textarea::placeholder {
     font-size: 20px;
   }
 }
+
+
+/* ======================================================================
+   BOUTON D’ACCÈS MOBILE — action unique placée sous le cadenas
+   ====================================================================== */
+.padlock-wrapper .padlock-open-btn {
+  position: relative;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 218px;
+  min-height: 52px;
+  margin: 0 0 10px;
+  padding: 13px 24px;
+  border: 1px solid rgba(255, 226, 238, 0.9);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff8fba 0%, #e95f99 100%);
+  box-shadow: 0 10px 24px rgba(235, 95, 153, 0.28), inset 0 1px 0 rgba(255,255,255,0.58);
+  color: #fffafc;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.padlock-wrapper .padlock-open-btn::before {
+  content: '♡';
+  margin-right: 9px;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 0;
+}
+
+.padlock-wrapper .padlock-open-btn:hover,
+.padlock-wrapper .padlock-open-btn:focus-visible {
+  outline: none;
+  filter: brightness(1.05);
+  box-shadow: 0 13px 28px rgba(235, 95, 153, 0.36), inset 0 1px 0 rgba(255,255,255,0.7);
+  transform: translateY(-2px);
+}
+
+.padlock-wrapper .padlock-open-btn:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 6px 15px rgba(235, 95, 153, 0.24), inset 0 1px 0 rgba(255,255,255,0.54);
+}
+
+.padlock-wrapper .padlock-open-label {
+  display: inline-block;
+}
+
+.padlock-wrapper .padlock-message {
+  margin-top: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .padlock-container {
+    margin-bottom: 10px;
+  }
+
+  .padlock-wrapper .padlock-open-btn {
+    width: min(86vw, 270px);
+    min-height: 54px;
+    padding: 14px 22px;
+    font-size: 14px;
+  }
+
+  .padlock-wrapper .padlock-message {
+    max-width: 290px;
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+  }
+}
