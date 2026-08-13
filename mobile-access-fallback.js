@@ -80,6 +80,17 @@
       gateButton.addEventListener('touchend', gateAction, { capture: true, passive: false });
     }
 
+    // Couverture élargie : le cadenas lui-même (l'icône coeur) doit aussi ouvrir
+    // le PIN, pas seulement le texte "Ouvrir notre univers". Sur certains
+    // téléphones le doigt touche l'icône et pas le bouton texte.
+    const padlockIcon = document.getElementById('main-padlock');
+    if (padlockIcon && padlockIcon.dataset.fallbackBound !== '1') {
+      padlockIcon.dataset.fallbackBound = '1';
+      padlockIcon.addEventListener('pointerup', gateAction, { capture: true });
+      padlockIcon.addEventListener('click', gateAction, { capture: true });
+      padlockIcon.addEventListener('touchend', gateAction, { capture: true, passive: false });
+    }
+
     const submitButton = document.getElementById('access-code-submit-btn');
     if (submitButton && submitButton.dataset.fallbackBound !== '1') {
       submitButton.dataset.fallbackBound = '1';
@@ -102,6 +113,19 @@
       }, { capture: true });
     }
   };
+
+  // Filet de sécurité supplémentaire : délégation sur tout le bloc du cadenas.
+  // Même si le bouton exact change ou si le binding direct rate sur un
+  // téléphone particulier, un tap n'importe où dans #padlock-wrapper doit
+  // quand même ouvrir le PIN (tant que le site principal n'est pas prêt).
+  const delegatedGateAction = (event) => {
+    if (window.cosmicloveMainReady === true) return;
+    const wrapper = event.target.closest?.('#padlock-wrapper');
+    if (!wrapper) return;
+    gateAction(event);
+  };
+  document.addEventListener('click', delegatedGateAction, { capture: true });
+  document.addEventListener('touchend', delegatedGateAction, { capture: true, passive: false });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
   else bind();
