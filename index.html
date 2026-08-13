@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Notre Univers">
-  <meta name="cosmiclove-build" content="v23-mobile-pin-fix">
+  <meta name="cosmiclove-build" content="v25-modal-hit-test-fix">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="cosmiclove-icon.svg">
   <title>Notre univers</title>
@@ -49,7 +49,7 @@
     }
   </script>
 </head>
-<body data-cosmiclove-build="v23-mobile-pin-fix">
+<body data-cosmiclove-build="v25-modal-hit-test-fix">
 
   <!-- COUNTDOWN GATEWAY OVERLAY -->
   <div class="countdown-gate-overlay" id="countdown-gate">
@@ -742,8 +742,6 @@
 
     <!-- Configuration publique FCM : ne contient jamais de clé privée -->
   <script src="push-config.js"></script>
-  <!-- Diagnostic téléphone uniquement quand l’URL contient ?debug=1 -->
-  <script src="debug-panel.js"></script>
   <!-- Purge optionnelle du cache/service worker avec ?clear=1 -->
   <script src="mobile-cache-reset.js"></script>
   <!-- Fallback d’accès tactile si le module principal tarde sur mobile -->

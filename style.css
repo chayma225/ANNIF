@@ -8911,3 +8911,21 @@ textarea::placeholder {
     font-size: 15px !important;
   }
 }
+
+
+/* ======================================================================
+   ROOT FIX — aucune modale fermée ne doit intercepter une touche mobile
+   ====================================================================== */
+.modal-backdrop:not(.open) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.modal-backdrop.open {
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
