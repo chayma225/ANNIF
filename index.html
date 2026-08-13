@@ -2,9 +2,16 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#3c1538">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Notre Univers">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="cosmiclove-icon.svg">
   <title>Notre univers</title>
-  
+
   <!-- Favicon Emoji (💖) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
   <meta name="description" content="Un coin secret dans l'univers pour fêter l'anniversaire de mon bébé d'amour, Ilyess. Joyeux anniversaire Zawji Habibi !">
@@ -110,7 +117,10 @@
           <!-- Rotating key that inserts on hover/click -->
           <div class="padlock-key" id="padlock-key"></div>
         </div>
-        <div class="padlock-message">Zawji, clique sur le cadenas pour l'ouvrir 🤍</div>
+        <button class="padlock-open-btn" id="padlock-open-btn" type="button" aria-label="Ouvrir l'accès avec le code PIN">
+          <span class="padlock-open-label">Ouvrir notre univers</span>
+        </button>
+        <div class="padlock-message">Appuie sur le bouton pour ouvrir avec ton code PIN 🤍</div>
       </div>
     </div>
   </div>
@@ -119,8 +129,15 @@
   <div class="main-site-content" id="main-content">
     <!-- SECTION 1 — STICKY NAVBAR WITH TABS -->
     <nav class="navbar" id="navbar">
-      <div class="nav-logo">CosmicLove</div>
+            <div class="nav-logo">CosmicLove</div>
       <div class="nav-right">
+        <div class="presence-widget" id="presence-widget" title="Dernières visites">
+          <span class="presence-dot" id="presence-dot" aria-hidden="true"></span>
+          <span class="presence-widget-label" id="presence-widget-label">Présence…</span>
+          <div class="presence-widget-details" id="presence-widget-details">Chargement des dernières visites…</div>
+          <button class="presence-notification-btn" id="enable-notifications-btn" type="button" title="Activer les notifications">🔔</button>
+        </div>
+
         <div class="nav-tabs">
           <button class="nav-tab active" data-target="view-lettre">Notre Lettre</button>
           <button class="nav-tab" data-target="view-galerie">Galerie Photos</button>
@@ -130,6 +147,8 @@
           <button class="nav-tab" data-target="view-univers">Univers Secret</button>
         </div>
         <button class="sound-toggle-btn" id="sound-toggle-btn" title="Activer/couper les sons">🔊</button>
+        <button class="session-lock-btn" id="session-lock-btn" type="button" title="Désactiver « Rester connecté »" aria-label="Désactiver Rester connecté">🔒</button>
+
       </div>
     </nav>
 
@@ -151,14 +170,12 @@
           </h1>
           <p class="hero-subtitle">nhottou fih souvenirtna, dh7ketna w klemna</p>
           
-          <!-- FLOATING KEYWORD PILLS ROW -->
-          <div class="keyword-pills-row">
-            <span class="keyword-pill pill-delay-0">Rou7y</span>
-            <span class="keyword-pill pill-delay-1">7obbi</span>
-            <span class="keyword-pill pill-delay-2">7yeti</span>
-            <span class="keyword-pill pill-delay-3">Weldi</span>
-            <span class="keyword-pill pill-delay-4">Sakinty</span>
+                    <!-- DYNAMIC AFFECTION TAGS -->
+          <div class="keyword-pills-row" id="hero-tags-row">
+            <span class="hero-tags-empty">Ajoute les mots doux de notre histoire…</span>
           </div>
+          <button class="hero-tags-manage-btn" id="manage-hero-tags-btn" type="button">Modifier nos mots doux</button>
+
         </div>
       </header>
 
@@ -169,44 +186,15 @@
           <p class="message-subtitle">mots écrits avec tout mon coeur</p>
         </div>
 
-        <!-- GLASSMORPHIC LETTER CARD -->
-        <article class="letter-card" id="letter-card">
-          <!-- Floating heart cluster -->
-          <div class="floating-heart-cluster">
-            <div class="css-heart heart-1"></div>
-            <div class="css-heart heart-2"></div>
-            <div class="css-heart heart-3"></div>
-          </div>
+                <!-- DYNAMIC LETTERS -->
+        <div class="letters-toolbar">
+          <p class="letters-sync-status" id="letters-sync-status">Lettres synchronisées en temps réel</p>
+          <button class="dream-submit-btn" id="add-letter-btn" type="button">+ Écrire une lettre</button>
+        </div>
+        <div class="letters-stack" id="letters-stack">
+          <div class="letters-empty-state">Nos lettres vont apparaître ici… 🤍</div>
+        </div>
 
-          <div class="letter-greeting">Zawji habibi, rou7y, 7obbi, 7yeti w weldi…</div>
-          
-          <div class="letter-body">
-            <p>Lyoum nhar mouch kima ay nhar… lyoum nhar li toulid fih 7ob 7yety, w ana ma najemch nfawtou bla ma n9ollek 9adeh enti t3anili.</p>
-
-<p>Mazelt netfaker el bidaya kienha el bare7… konna ashabb 9rab barcha, na7kiw w nadh7kou, ama fi nhar wa7ed, kol chay tbeddel binetna w walet el 9issa a3m9. 5rajna m3a b3athna, w 93adna fi  Sabat  el blassa li schahdt 3la awel la7dhatna w walina fiha m3a ba3dhna. W el 7aja el jmila yaser, enou el 9issa mte3na bdet nharet el 1 Avril  kienou el 9dar 7ab yba3thelna signe bech nekhtarou hedha nhar b'dhet, bech tab9a dima khassa w ma tetnesech.</p>
-
-<p>Men wa9tha, barcha 7ajet tbaddlou fi 7yeti. L9it m3ak raha, aman, w 7ob ma kontch netsawer eni najem n7ess bih haka. Enti mouch ken 7obbi… enti el insan li m3ah nkoun 3la tbi3ty minghir tasano3 to5mem inty li kont dima ta7mi fi 7adek w mkhalli masafa m3a el nas, ama m3aya ana walit tfadhfadhly w t7elli 9albek  w hedhi akther 7aja tkhallini n7ess b9imty 3andek. N7eb fik zeda kifash dima t7awel tefhemni, w ma tsallemch fiya 7atta kif netghachech… ta3ref kifach tcalminy w tkhallini nethenna m3ak kol youm akther.</p>
-
-<p>Mouch bech bech nekdheb 3lik… el distance binetna touja3ni barcha marrat. Kif kol couple, 3andna el la7dhat el sa3ba, netna9chou, w marra marra n7ess rou7i b3ida 3lik 7atta w enti 7dher fi 9albi. Ama el 7aja el jmila fina, eli kol marra nsall7ou w na3awdou nl9aw ba3dhna, w n7ess el 7ob binetna yezdad 9wa. El masafa ma tnajjemch tna9is men 7obbi lik tzidni bark ini netwa7chek akther, w n7ebek akther. W nestanna bfaregh el sabr el nhar li net9ablou fih w ma yab9ach fama chay yfarra9na.</p>
-
-<p>Enti dima ma3aya… fi mokhi… fi 9albi… fi kol tafsila men nhari. W hedha el site 3maltou bech yab9a notre petit coin lina a7na  nhottou fih souvenirtna, dh7ketna, klemna, w kol la7dha 7lowa binetna, men bidayetna fi  Sabat nharet el Poisson d'Avril llyoum. Bech 7atta ken fama kilometret binetna taw, nab9aw dima 9rib l-ba3dhna.</p>
-
-<p>Merci khaterk fi 7yeti… khaterk tkhallini n7ess bel 7ob, bel aman, w bel douceur eli dima tmanitha. Joyeux anniversaire ya rou7i… ya 7ob 9albi… ya a8la insan fi denya.</p>
-          </div>
-
-          <div class="letter-signoff">
-            N7ebek barcha… w kol nhar n7ebek akther men nhar eli 9ablou. 🤍
-          </div>
-
-          <hr class="letter-divider">
-
-          <!-- 3 MINI NOTE CARDS -->
-          <div class="mini-notes-row">
-            <div class="mini-note">Enti e sanad w e habib w e sahreb</div>
-            <div class="mini-note">ol la7tha m3ak teswa denya</div>
-            <div class="mini-note">Joyeux anniversaire ya 7ob 9albi</div>
-          </div>
-        </article>
       </section>
     </div>
 
@@ -354,21 +342,25 @@
             <!-- Leaflet map -->
             <div id="love-map"></div>
 
-            <div class="distance-stats">
+                        <div class="distance-stats">
               <div class="stat">
-                <span class="stat-label">Distance</span>
-                <span class="stat-value" id="live-distance-value">~125 km</span>
+                <span class="stat-label">Distance routière</span>
+                <span class="stat-value" id="live-distance-value">Calcul…</span>
               </div>
               <div class="stat">
-                <span class="stat-label">Trajet</span>
-                <span class="stat-value" id="live-time-value">~2h 15m</span>
+                <span class="stat-label">En voiture</span>
+                <span class="stat-value" id="live-time-value">Calcul…</span>
               </div>
             </div>
 
             <p class="distance-quote">"Peu importe les kilomètres, nos cœurs sont liés."</p>
 
-            <button id="enable-location-btn" class="dream-submit-btn map-locate-btn">📍 Partager ma position</button>
+            <div class="map-actions-row">
+              <button id="recenter-map-btn" class="map-action-btn" type="button" title="Afficher les deux cœurs">♡ Recentrer les deux cœurs</button>
+              <button id="enable-location-btn" class="dream-submit-btn map-locate-btn" type="button">📍 Partager ma position</button>
+            </div>
             <p id="location-status" class="location-status-text"></p>
+
           </div>
 
           <!-- FEATURE 4: HUMEUR DU MOMENT (replaces baromètre) -->
@@ -405,9 +397,16 @@
               <button class="mood-btn" data-mood="🥳" data-label-m="Joyeux" data-label-f="Joyeuse">🥳</button>
               <button class="mood-btn" data-mood="😊" data-label-m="Heureux" data-label-f="Heureuse">😊</button>
               <button class="mood-btn" data-mood="🤩" data-label-m="Émerveillé" data-label-f="Émerveillée">🤩</button>
-              <button class="mood-btn" data-mood="😌" data-label-m="Tranquille" data-label-f="Tranquille">😌</button>
+                            <button class="mood-btn" data-mood="😌" data-label-m="Tranquille" data-label-f="Tranquille">😌</button>
+              <button class="mood-btn" data-mood="🫶🏻" data-label-m="Je t'aime" data-label-f="Je t'aime">🫶🏻</button>
+              <button class="mood-btn" data-mood="😁" data-label-m="Très heureux" data-label-f="Très heureuse">😁</button>
+              <button class="mood-btn" data-mood="😚" data-label-m="Doux bisou" data-label-f="Doux bisou">😚</button>
+              <button class="mood-btn" data-mood="😋" data-label-m="Trop bon" data-label-f="Trop bon">😋</button>
+              <button class="mood-btn" data-mood="😎" data-label-m="Très cool" data-label-f="Très cool">😎</button>
+              <button class="mood-btn" data-mood="😒" data-label-m="Un peu boudeur" data-label-f="Un peu boudeuse">😒</button>
 
               <!-- Ligne 2 : Besoins, calme & fatigue -->
+
               <button class="mood-btn" data-mood="🥺" data-label-m="Besoin de câlins" data-label-f="Besoin de câlins">🥺</button>
               <button class="mood-btn" data-mood="😴" data-label-m="Sommeil" data-label-f="Sommeil">😴</button>
               <button class="mood-btn" data-mood="🤒" data-label-m="Malade" data-label-f="Malade">🤒</button>
@@ -564,7 +563,42 @@
     </div>
   </div>
 
+  <!-- DYNAMIC LETTER EDITOR -->
+  <div class="modal-backdrop" id="letter-editor-modal">
+    <div class="modal-card letter-editor-card">
+      <button type="button" class="modal-close-btn" id="letter-editor-close">&times;</button>
+      <div class="modal-badge">Un nouveau chapitre ✨</div>
+      <h3 class="modal-title">Écrire une lettre</h3>
+      <p class="modal-subtitle">Garde une pensée pour un anniversaire, un projet ou un moment important.</p>
+      <form id="letter-editor-form" class="dynamic-editor-form">
+        <label class="form-label" for="letter-title-input">Titre</label>
+        <input type="text" id="letter-title-input" placeholder="Ex. Notre prochain anniversaire" required>
+        <label class="form-label" for="letter-body-input">Message</label>
+        <textarea id="letter-body-input" rows="12" placeholder="Écris votre lettre…" required></textarea>
+        <button type="submit" class="modal-cta-btn">Sceller la lettre 💌</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DYNAMIC HERO TAG EDITOR -->
+  <div class="modal-backdrop" id="hero-tags-modal">
+    <div class="modal-card hero-tags-modal-card">
+      <button type="button" class="modal-close-btn" id="hero-tags-close">&times;</button>
+      <div class="modal-badge">Nos mots doux</div>
+      <h3 class="modal-title">Modifier les slogans</h3>
+      <p class="modal-subtitle">Ajoute, modifie ou supprime les petits noms qui flottent dans notre univers.</p>
+      <form id="hero-tags-form" class="dynamic-editor-form">
+        <div class="hero-tag-add-row">
+          <input type="text" id="hero-tag-input" maxlength="40" placeholder="Ex. Rou7y, 7obbi, mon étoile…">
+          <button type="submit" class="dream-submit-btn">Ajouter</button>
+        </div>
+      </form>
+      <div id="hero-tags-editor-list" class="hero-tags-editor-list"></div>
+    </div>
+  </div>
+
   <!-- SURPRISE POPUP MODAL — 3-step immersive experience -->
+
   <div class="modal-backdrop" id="surprise-modal">
     <div class="modal-card surprise-modal-card">
       <button class="modal-close-btn" id="modal-close">&times;</button>
@@ -581,23 +615,18 @@
         <h3 class="modal-title">Zawji… tu as un message</h3>
         <p class="modal-subtitle">Quelque chose de spécial t'attend à l'intérieur.<br>Appuie pour ouvrir l'enveloppe.</p>
         <button class="modal-cta-btn" id="surprise-open-btn">Ouvrir l'enveloppe 💌</button>
+        <button class="surprise-manage-btn" id="manage-surprise-btn" type="button">Écrire le petit mot de la surprise</button>
       </div>
 
-      <!-- Step 2 : the letter -->
+      <!-- Step 2 : the autonomous surprise message -->
       <div class="surprise-step surprise-hidden" id="surprise-step-2">
-        <div class="modal-badge">Un cadeau du cœur ✨</div>
-        <div class="surprise-letter">
-          <div class="letter-lines">
-            <p class="letter-line" style="--d:0">Ya rou7i…</p>
-            <p class="letter-line" style="--d:1">Awel ma khammamt fi cadeau, 7abit 7aja tkhallik dima tetfakkarnii… kima el bracelet li a3tithouli w li ma yfarra9nich.</p>
-            <p class="letter-line" style="--d:2">Ama kif l9it el masefa li binetna t5alinich nmedlek lcadeaux te3ek so 5ammemt fi  7aja fiha wa9ti, w les sentiments te3y, w 9albi.</p>
-            <p class="letter-line" style="--d:3">Mel fikra lil tanfith, enti kont 7ather fi mokhi fi kol la7dha. Kol kelma w kol 7arf hna 3la khatrek enti kahw.</p>
-            <p class="letter-line" style="--d:4">Hedha mouch juste site… hedha notre petit coin li bech yab9a dima yfakkarna bel 7ob li binetna raghm el kilometret w nchalh ye3jbek 🥺.</p>
-            <p class="letter-line" style="--d:5">Joyeux anniversaire ya 7ob 9albi… kol 3am w enti mnawwar 7yeti. 🌙</p>
-            <p class="letter-line letter-signature" style="--d:6">Avec tout mon amour,<br><em>pour toujours… 💕</em></p>
+        <div class="modal-badge">Un cadeau rien qu’à lui ✨</div>
+        <div class="surprise-letter surprise-independent-letter">
+          <div class="letter-lines" id="surprise-letter-content">
+            <p class="letter-line" style="--d:0">Une surprise attend encore son petit mot.</p>
           </div>
         </div>
-        
+
         <button class="modal-cta-btn" id="surprise-reply-btn">Garder dans mon cœur 🤍</button>
       </div>
 
@@ -617,7 +646,25 @@
     </div>
   </div>
 
+    <!-- AUTONOMOUS SURPRISE EDITOR -->
+  <div class="modal-backdrop" id="surprise-editor-modal" aria-labelledby="surprise-editor-title">
+    <div class="modal-card surprise-editor-card" role="dialog" aria-modal="true">
+      <button type="button" class="modal-close-btn" id="surprise-editor-close" aria-label="Fermer l’éditeur de surprise">&times;</button>
+      <div class="modal-badge">Une surprise à part 💌</div>
+      <h3 class="modal-title" id="surprise-editor-title">Écrire le petit mot secret</h3>
+      <p class="modal-subtitle">Ce message est indépendant de toutes les lettres de votre espace.</p>
+      <form id="surprise-editor-form" class="dynamic-editor-form">
+        <label class="form-label" for="surprise-title-input">Titre de la surprise</label>
+        <input type="text" id="surprise-title-input" maxlength="80" placeholder="Ex. Ouvre quand tu penses à moi" required>
+        <label class="form-label" for="surprise-body-input">Petit mot</label>
+        <textarea id="surprise-body-input" rows="7" maxlength="2500" placeholder="Écris un message rien que pour cette surprise…" required></textarea>
+        <button type="submit" class="modal-cta-btn">Sceller la surprise 💌</button>
+      </form>
+    </div>
+  </div>
+
   <!-- UPLOADER FORM POPUP MODAL -->
+
   <div class="modal-backdrop" id="upload-modal">
     <div class="modal-card upload-modal-card">
       <button class="modal-close-btn" id="upload-modal-close">&times;</button>
@@ -664,11 +711,16 @@
       <div class="modal-badge">Accès privé</div>
       <h3 class="modal-title">Un petit code, zawji 🤍</h3>
       <p class="modal-subtitle">Tu sais lequel…</p>
-      <form id="access-code-form" autocomplete="off">
-        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off">
+      <div id="access-code-form" autocomplete="off">
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off" aria-describedby="access-code-error">
+        <label class="remember-access-option" for="access-remember-input">
+          <input type="checkbox" id="access-remember-input">
+          <span>Rester connecté sur cet appareil</span>
+        </label>
         <p class="access-code-error" id="access-code-error"></p>
-        <button type="submit" class="modal-cta-btn">Ouvrir 🔓</button>
-      </form>
+
+        <button type="button" id="access-code-submit-btn" class="modal-cta-btn">Ouvrir 🔓</button>
+      </div>
     </div>
   </div>
 
@@ -687,7 +739,12 @@
   <div class="cursor-dot" id="cursor-dot"></div>
   <div class="cursor-ring" id="cursor-ring"></div>
 
+    <!-- Configuration publique FCM : ne contient jamais de clé privée -->
+  <script src="push-config.js"></script>
+  <!-- Fallback d’accès tactile si le module principal tarde sur mobile -->
+  <script src="mobile-access-fallback.js"></script>
   <!-- Script -->
   <script type="module" src="script.js"></script>
+
 </body>
 </html>
