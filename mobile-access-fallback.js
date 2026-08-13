@@ -68,17 +68,28 @@
     return true;
   };
 
+  // Neutralise tout ancien flux de validation HTML qui pourrait encore être servi
+  // depuis un cache mobile ou déclenché par la touche Entrée.
+  document.addEventListener('invalid', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
   const bind = () => {
     const gateButton = document.getElementById('padlock-open-btn');
     if (gateButton && gateButton.dataset.fallbackBound !== '1') {
       gateButton.dataset.fallbackBound = '1';
+      gateButton.addEventListener('pointerup', gateAction, { capture: true });
       gateButton.addEventListener('click', gateAction, { capture: true });
+      gateButton.addEventListener('touchend', gateAction, { capture: true, passive: false });
     }
 
     const submitButton = document.getElementById('access-code-submit-btn');
     if (submitButton && submitButton.dataset.fallbackBound !== '1') {
       submitButton.dataset.fallbackBound = '1';
+      submitButton.addEventListener('pointerup', pinAction, { capture: true });
       submitButton.addEventListener('click', pinAction, { capture: true });
+      submitButton.addEventListener('touchend', pinAction, { capture: true, passive: false });
     }
 
     const form = document.getElementById('access-code-form');

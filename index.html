@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Notre Univers">
+  <meta name="cosmiclove-build" content="v23-mobile-pin-fix">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="cosmiclove-icon.svg">
   <title>Notre univers</title>
@@ -37,21 +38,6 @@
       }
     };
 
-    // Anti-bulle mobile : tant que le portail (gate) est encore affiché, aucun
-    // champ "required" caché plus bas dans la page ne doit jamais afficher la
-    // bulle native de validation du navigateur ("Veuillez renseigner ce champ").
-    // Sur certains Chrome/WebView Android, l'autofill peut déclencher cette
-    // bulle même sur des champs invisibles quand on touche un simple bouton.
-    document.addEventListener('invalid', function (event) {
-      var gate = document.getElementById('countdown-gate');
-      var gateStillActive = gate && gate.style.display !== 'none' && !gate.classList.contains('fade-out');
-      if (gateStillActive) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.target && typeof event.target.blur === 'function') event.target.blur();
-      }
-    }, true);
-
     if (window.location.protocol === 'file:') {
       console.warn("Lancement en mode local file:// détecté. Le navigateur bloque les modules ES. Veuillez utiliser http://localhost:8000");
       window.addEventListener('DOMContentLoaded', () => {
@@ -63,7 +49,7 @@
     }
   </script>
 </head>
-<body>
+<body data-cosmiclove-build="v23-mobile-pin-fix">
 
   <!-- COUNTDOWN GATEWAY OVERLAY -->
   <div class="countdown-gate-overlay" id="countdown-gate">
@@ -258,7 +244,7 @@
         </div>
 
         <!-- Dream Form -->
-        <form class="dream-form" id="dream-form">
+        <form class="dream-form" id="dream-form" novalidate>
           <div class="dream-form-row">
             <div class="form-group dream-input-group">
               <input type="text" id="dream-input" placeholder="Ex: Voyager à Tokyo ensemble, On adore les mêmes films…" required maxlength="120">
@@ -317,7 +303,7 @@
         </div>
 
         <!-- Add song form -->
-        <form class="dream-form" id="playlist-form" style="margin-top: 40px;">
+        <form class="dream-form" id="playlist-form" novalidate style="margin-top: 40px;">
           <div class="dream-form-row">
             <div class="form-group dream-input-group" style="flex: 2;">
               <input type="text" id="song-title" placeholder="Titre (ex: Perfect)" required>
@@ -509,7 +495,7 @@
             <!-- Notes populated by JS -->
           </div>
 
-          <form class="dream-form" id="note-form" style="margin-top: 30px; justify-content: center; max-width: 500px; margin-left: auto; margin-right: auto;">
+          <form class="dream-form" id="note-form" novalidate style="margin-top: 30px; justify-content: center; max-width: 500px; margin-left: auto; margin-right: auto;">
             <div class="dream-form-row">
               <div class="form-group dream-input-group" style="flex: 2;">
                 <input type="text" id="note-input" placeholder="Ton petit mot doux..." required maxlength="60">
@@ -569,7 +555,7 @@
           <div class="lightbox-comments-list" id="lightbox-comments-list">
             <p class="no-comments">Aucun commentaire encore… ajoute le premier 💕</p>
           </div>
-          <form class="lightbox-comment-form" id="lightbox-comment-form">
+          <form class="lightbox-comment-form" id="lightbox-comment-form" novalidate>
             <input type="text" id="lightbox-comment-input" placeholder="Écris un commentaire…" required maxlength="200">
             <button type="submit">💌</button>
           </form>
@@ -585,7 +571,7 @@
       <div class="modal-badge">Un nouveau chapitre ✨</div>
       <h3 class="modal-title">Écrire une lettre</h3>
       <p class="modal-subtitle">Garde une pensée pour un anniversaire, un projet ou un moment important.</p>
-      <form id="letter-editor-form" class="dynamic-editor-form">
+      <form id="letter-editor-form" class="dynamic-editor-form" novalidate>
         <label class="form-label" for="letter-title-input">Titre</label>
         <input type="text" id="letter-title-input" placeholder="Ex. Notre prochain anniversaire" required>
         <label class="form-label" for="letter-body-input">Message</label>
@@ -602,7 +588,7 @@
       <div class="modal-badge">Nos mots doux</div>
       <h3 class="modal-title">Modifier les slogans</h3>
       <p class="modal-subtitle">Ajoute, modifie ou supprime les petits noms qui flottent dans notre univers.</p>
-      <form id="hero-tags-form" class="dynamic-editor-form">
+      <form id="hero-tags-form" class="dynamic-editor-form" novalidate>
         <div class="hero-tag-add-row">
           <input type="text" id="hero-tag-input" maxlength="40" placeholder="Ex. Rou7y, 7obbi, mon étoile…">
           <button type="submit" class="dream-submit-btn">Ajouter</button>
@@ -668,7 +654,7 @@
       <div class="modal-badge">Une surprise à part 💌</div>
       <h3 class="modal-title" id="surprise-editor-title">Écrire le petit mot secret</h3>
       <p class="modal-subtitle">Ce message est indépendant de toutes les lettres de votre espace.</p>
-      <form id="surprise-editor-form" class="dynamic-editor-form">
+      <form id="surprise-editor-form" class="dynamic-editor-form" novalidate>
         <label class="form-label" for="surprise-title-input">Titre de la surprise</label>
         <input type="text" id="surprise-title-input" maxlength="80" placeholder="Ex. Ouvre quand tu penses à moi" required>
         <label class="form-label" for="surprise-body-input">Petit mot</label>
@@ -688,7 +674,7 @@
       <h3 class="modal-title">Ajouter une Photo</h3>
       <p class="modal-subtitle" style="margin-bottom: 16px;">Ajoutez un moment gravé dans votre univers.</p>
 
-      <form id="upload-form" class="upload-form">
+      <form id="upload-form" class="upload-form" novalidate>
         <div class="form-group">
           <label for="upload-file" class="form-label">Choisir l'image</label>
           <div class="file-input-wrapper">
@@ -727,7 +713,7 @@
       <h3 class="modal-title">Un petit code, zawji 🤍</h3>
       <p class="modal-subtitle">Tu sais lequel…</p>
       <div id="access-code-form" autocomplete="off">
-        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" aria-describedby="access-code-error">
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off" aria-describedby="access-code-error">
         <label class="remember-access-option" for="access-remember-input">
           <input type="checkbox" id="access-remember-input">
           <span>Rester connecté sur cet appareil</span>
@@ -756,6 +742,8 @@
 
     <!-- Configuration publique FCM : ne contient jamais de clé privée -->
   <script src="push-config.js"></script>
+  <!-- Purge optionnelle du cache/service worker avec ?clear=1 -->
+  <script src="mobile-cache-reset.js"></script>
   <!-- Fallback d’accès tactile si le module principal tarde sur mobile -->
   <script src="mobile-access-fallback.js"></script>
   <!-- Script -->
