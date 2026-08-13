@@ -711,8 +711,8 @@
       <div class="modal-badge">Accès privé</div>
       <h3 class="modal-title">Un petit code, zawji 🤍</h3>
       <p class="modal-subtitle">Tu sais lequel…</p>
-      <form id="access-code-form" autocomplete="off">
-        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off">
+      <form id="access-code-form" autocomplete="off" novalidate>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="access-code-input" class="access-code-input" placeholder="••••" autocomplete="off" aria-describedby="access-code-error">
         <label class="remember-access-option" for="access-remember-input">
           <input type="checkbox" id="access-remember-input">
           <span>Rester connecté sur cet appareil</span>
@@ -740,9 +740,7 @@
   <div class="cursor-ring" id="cursor-ring"></div>
 
     <!-- Configuration publique FCM : ne contient jamais de clé privée -->
-    <script src="push-config.js"></script>
-  <!-- Diagnostic téléphone uniquement quand l’URL contient ?debug=1 -->
-  <script src="debug-panel.js"></script>
+  <script src="push-config.js"></script>
   <!-- Script -->
   <script type="module" src="script.js"></script>
 
