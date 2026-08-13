@@ -742,6 +742,8 @@
 
     <!-- Configuration publique FCM : ne contient jamais de clé privée -->
   <script src="push-config.js"></script>
+  <!-- Diagnostic téléphone uniquement quand l’URL contient ?debug=1 -->
+  <script src="debug-panel.js"></script>
   <!-- Purge optionnelle du cache/service worker avec ?clear=1 -->
   <script src="mobile-cache-reset.js"></script>
   <!-- Fallback d’accès tactile si le module principal tarde sur mobile -->

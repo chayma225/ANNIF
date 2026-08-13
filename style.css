@@ -8868,3 +8868,46 @@ textarea::placeholder {
     text-align: center;
   }
 }
+
+
+/* ======================================================================
+   MOBILE TOUCH HIT AREA — bouton d’accès toujours au-dessus des décorations
+   ====================================================================== */
+.countdown-gate-overlay .gate-content,
+.countdown-gate-overlay .padlock-wrapper,
+.countdown-gate-overlay .padlock-container,
+.countdown-gate-overlay #padlock-open-btn {
+  pointer-events: auto !important;
+}
+
+.countdown-gate-overlay .gate-particles,
+.countdown-gate-overlay .cursor-dot,
+.countdown-gate-overlay .cursor-ring,
+.countdown-gate-overlay [aria-hidden="true"] {
+  pointer-events: none !important;
+}
+
+.countdown-gate-overlay #padlock-open-btn {
+  position: relative !important;
+  z-index: 10000 !important;
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.countdown-gate-overlay #padlock-open-btn:focus,
+.countdown-gate-overlay #padlock-open-btn:focus-visible,
+.countdown-gate-overlay #padlock-open-btn:active {
+  outline: none !important;
+}
+
+@media (max-width: 640px) {
+  .countdown-gate-overlay #padlock-open-btn {
+    min-width: min(86vw, 320px) !important;
+    min-height: 60px !important;
+    padding: 16px 26px !important;
+    font-size: 15px !important;
+  }
+}

@@ -139,6 +139,7 @@
       return `${Math.round(box.width)}×${Math.round(box.height)} px`;
     };
     return {
+      build: document.body?.dataset.cosmicloveBuild || document.querySelector('meta[name="cosmiclove-build"]')?.content || 'ABSENT',
       bouton: button ? `présent · ${rect(button)}` : 'ABSENT',
       boutonVisible: button ? `${getComputedStyle(button).display} / ${getComputedStyle(button).visibility}` : '—',
       cadenas: lock ? `présent · ${lockContainer?.className || 'sans conteneur'}` : 'ABSENT',
@@ -210,8 +211,8 @@
     document.body.append(launcher, panel);
     addEvent('Mode debug activé');
     render();
-    const observer = new MutationObserver(() => render());
-    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+    // Pas de MutationObserver global : le panneau modifie lui-même son DOM et
+    // provoquerait une boucle infinie sur les téléphones peu puissants.
     window.setInterval(render, 900);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
