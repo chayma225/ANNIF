@@ -1411,6 +1411,11 @@ button {
   font-family: var(--font-sans);
   outline: none;
   transition: all 0.3s ease;
+  /* Le champ est maintenant type="text" (pas "password") pour éviter que
+     Chrome/Android le traite comme un mot de passe et intercepte le premier
+     tap avec sa barre d'autofill. On masque les chiffres nous-mêmes ici. */
+  -webkit-text-security: disc;
+  text-security: disc;
 }
 
 .access-code-input:focus {
