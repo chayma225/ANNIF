@@ -740,7 +740,9 @@
   <div class="cursor-ring" id="cursor-ring"></div>
 
     <!-- Configuration publique FCM : ne contient jamais de clé privée -->
-  <script src="push-config.js"></script>
+    <script src="push-config.js"></script>
+  <!-- Diagnostic téléphone uniquement quand l’URL contient ?debug=1 -->
+  <script src="debug-panel.js"></script>
   <!-- Script -->
   <script type="module" src="script.js"></script>
 
