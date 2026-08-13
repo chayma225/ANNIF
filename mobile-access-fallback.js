@@ -43,6 +43,9 @@
     lastGateAction = now;
     event.preventDefault();
     event.stopPropagation();
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     if (remembered()) unlockWithoutModule();
     else openPin();
   };

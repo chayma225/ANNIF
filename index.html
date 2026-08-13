@@ -37,6 +37,21 @@
       }
     };
 
+    // Anti-bulle mobile : tant que le portail (gate) est encore affiché, aucun
+    // champ "required" caché plus bas dans la page ne doit jamais afficher la
+    // bulle native de validation du navigateur ("Veuillez renseigner ce champ").
+    // Sur certains Chrome/WebView Android, l'autofill peut déclencher cette
+    // bulle même sur des champs invisibles quand on touche un simple bouton.
+    document.addEventListener('invalid', function (event) {
+      var gate = document.getElementById('countdown-gate');
+      var gateStillActive = gate && gate.style.display !== 'none' && !gate.classList.contains('fade-out');
+      if (gateStillActive) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.target && typeof event.target.blur === 'function') event.target.blur();
+      }
+    }, true);
+
     if (window.location.protocol === 'file:') {
       console.warn("Lancement en mode local file:// détecté. Le navigateur bloque les modules ES. Veuillez utiliser http://localhost:8000");
       window.addEventListener('DOMContentLoaded', () => {
