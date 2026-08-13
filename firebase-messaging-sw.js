@@ -13,7 +13,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-const APP_ICON_URL = new URL('cosmiclove-icon.svg', self.location.href).toString();
+const APP_ICON_URL = new URL('cosmiclove-icon-192.png?v=27', self.location.href).toString();
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

@@ -8929,3 +8929,78 @@ textarea::placeholder {
   pointer-events: auto !important;
   opacity: 1 !important;
 }
+
+
+/* ======================================================================
+   SPLASH D’ACCUEIL PARTAGÉ — iPhone + Android
+   ====================================================================== */
+.cosmic-splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 30vh;
+  overflow: hidden;
+  background: #14051a;
+  color: #fff7fb;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 520ms ease, visibility 520ms ease;
+}
+
+.cosmic-splash-screen.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cosmic-splash-glow {
+  position: absolute;
+  width: min(88vw, 560px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,111,168,.22) 0%, rgba(97,29,82,.12) 44%, transparent 72%);
+  filter: blur(18px);
+  transform: translateY(-5vh);
+}
+
+.cosmic-splash-icon {
+  position: relative;
+  z-index: 1;
+  width: min(192px, 42vw);
+  height: min(192px, 42vw);
+  border-radius: 28%;
+  box-shadow: 0 20px 70px rgba(255, 84, 157, .26);
+  animation: cosmicSplashHeart 1.4s ease-in-out both;
+}
+
+.cosmic-splash-title {
+  position: relative;
+  z-index: 1;
+  padding: 0 22px;
+  color: #fff7fb;
+  font-family: var(--font-sans, Poppins, sans-serif);
+  font-size: clamp(22px, 5.2vw, 34px);
+  font-weight: 500;
+  letter-spacing: .01em;
+  text-align: center;
+  text-shadow: 0 2px 22px rgba(255, 111, 168, .18);
+  animation: cosmicSplashTitle 900ms ease 120ms both;
+}
+
+@keyframes cosmicSplashHeart {
+  from { opacity: 0; transform: scale(.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cosmicSplashTitle {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .cosmic-splash-screen { gap: 28vh; }
+  .cosmic-splash-title { font-size: 23px; }
+}

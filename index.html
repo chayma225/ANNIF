@@ -8,13 +8,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Notre Univers">
-  <meta name="cosmiclove-build" content="v25-modal-hit-test-fix">
+  <meta name="cosmiclove-build" content="v27-unified-splash">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="cosmiclove-icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="cosmiclove-icon-180.png?v=27">
   <title>Notre univers</title>
 
-  <!-- Favicon Emoji (💖) -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💖</text></svg>">
+  <!-- Même cœur rose sur navigateur, Android et iPhone -->
+  <link rel="icon" type="image/png" sizes="192x192" href="cosmiclove-icon-192.png?v=27">
   <meta name="description" content="Un coin secret dans l'univers pour fêter l'anniversaire de mon bébé d'amour, Ilyess. Joyeux anniversaire Zawji Habibi !">
   
   <!-- Google Fonts -->
@@ -49,7 +49,14 @@
     }
   </script>
 </head>
-<body data-cosmiclove-build="v25-modal-hit-test-fix">
+<body data-cosmiclove-build="v27-unified-splash">
+
+  <!-- Écran d’accueil partagé iPhone + Android -->
+  <div class="cosmic-splash-screen" id="cosmic-splash-screen" aria-hidden="true">
+    <div class="cosmic-splash-glow" aria-hidden="true"></div>
+    <img class="cosmic-splash-icon" src="cosmiclove-icon-192.png?v=27" width="192" height="192" alt="Cœur CosmicLove">
+    <div class="cosmic-splash-title">Notre Univers — CosmicLove</div>
+  </div>
 
   <!-- COUNTDOWN GATEWAY OVERLAY -->
   <div class="countdown-gate-overlay" id="countdown-gate">
@@ -748,6 +755,18 @@
   <script src="mobile-access-fallback.js"></script>
   <!-- Script -->
   <script type="module" src="script.js"></script>
+  <script>
+    (() => {
+      const splash = document.getElementById('cosmic-splash-screen');
+      if (!splash) return;
+      const hideSplash = () => {
+        splash.classList.add('is-hidden');
+        window.setTimeout(() => splash.remove(), 700);
+      };
+      window.addEventListener('load', () => window.setTimeout(hideSplash, 450), { once: true });
+      window.setTimeout(hideSplash, 2200);
+    })();
+  </script>
 
 </body>
 </html>
