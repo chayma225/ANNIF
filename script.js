@@ -753,6 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const accessModal = document.getElementById('access-code-modal');
   const accessForm = document.getElementById('access-code-form');
+  const accessSubmitBtn = document.getElementById('access-code-submit-btn');
   const accessInput = document.getElementById('access-code-input');
   const accessError = document.getElementById('access-code-error');
   const accessRememberInput = document.getElementById('access-remember-input');
@@ -817,30 +818,36 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { accessModal.style.display = 'none'; }, 300);
   }
 
-  if (accessForm) {
-    accessForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const value = (accessInput.value || '').trim();
-      if (value === ACCESS_CODE) {
-        const rememberAccess = Boolean(accessRememberInput?.checked);
-        try {
-          if (rememberAccess) {
-            localStorage.setItem(ACCESS_REMEMBER_KEY, '1');
-          } else {
-            // Sans cette case, le PIN reste obligatoire à la prochaine connexion.
-            localStorage.removeItem(ACCESS_REMEMBER_KEY);
-          }
-        } catch (err) {}
-        renderSessionLockButton();
-        closeAccessModal();
-        runUnlockSequence();
+  const submitAccessCode = (event) => {
+    event?.preventDefault();
+    const value = (accessInput?.value || '').trim();
+    if (value === ACCESS_CODE) {
+      const rememberAccess = Boolean(accessRememberInput?.checked);
+      try {
+        if (rememberAccess) {
+          localStorage.setItem(ACCESS_REMEMBER_KEY, '1');
+        } else {
+          // Sans cette case, le PIN reste obligatoire à la prochaine connexion.
+          localStorage.removeItem(ACCESS_REMEMBER_KEY);
+        }
+      } catch (err) {}
+      renderSessionLockButton();
+      closeAccessModal();
+      runUnlockSequence();
+    } else {
+      playPop();
+      if (accessError) accessError.textContent = 'Ce n\'est pas le bon code… réessaie 🤍';
+      accessForm?.classList.add('shake');
+      setTimeout(() => accessForm?.classList.remove('shake'), 400);
+      accessInput?.focus();
+    }
+  };
 
-      } else {
-        playPop();
-        if (accessError) accessError.textContent = 'Ce n\'est pas le bon code… réessaie 🤍';
-        accessForm.classList.add('shake');
-        setTimeout(() => accessForm.classList.remove('shake'), 400);
-      }
+  // Le PIN est déclenché par un vrai bouton, jamais par la validation native d’un form.
+  if (accessSubmitBtn) accessSubmitBtn.addEventListener('click', submitAccessCode);
+  if (accessInput) {
+    accessInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') submitAccessCode(event);
     });
   }
 
@@ -880,8 +887,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (padlock) padlock.addEventListener('click', handlePadlockOpen);
   if (padlockOpenBtn) padlockOpenBtn.addEventListener('click', handlePadlockOpen);
+  // Le fallback mobile sait maintenant que le gestionnaire principal est prêt.
+  window.cosmicloveMainReady = true;
 
-  // ==========================================================================
+  // ========================================================================== 
   // CONFETTI EXPLOSION - PREMIUM CELEBRATION
   // ==========================================================================
   function createConfetti() {
